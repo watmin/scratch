@@ -96,6 +96,124 @@ distributed computation with cryptographic provenance —
 something you can't do with bare TCP, bare HTTP, or even bare
 RPC frameworks.
 
+## Mini AWS on a laptop — the local testbed for distributed systems
+
+User direction (2026-05-03, after WAT-NETWORK.md initial draft):
+
+> *"one thing to keep in mind.. somewhere in the wat-rs/docs/
+> ... there's an expression.. i think its an fpga doc?..
+> whatever...*
+>
+> *i modeled the wat-vm to be a mini aws on my laptop... comms
+> between stateful things are 'rpc-like' on purpose.. the lru
+> cache service is like a redis.. the console service is like
+> an ecs output stream.. the telemetery service is both
+> cloudwatch logs and metrics...*
+>
+> *the system was always meant to be distributed.. but i needed
+> a local representation with the same constraints to realize
+> it"*
+
+**The substrate has been distributed-systems-shaped from the
+start.** Every architectural choice has been made to be CORRECT
+for distribution, not just convenient locally. The wat-vm is a
+LOCAL TESTBED for distributed-systems patterns; the eventual
+extension to a real network is a natural continuation, not a
+pivot.
+
+### The complementary framings
+
+Two architectural framings already in the substrate
+documentation:
+
+**Framing 1 — Programs as circuits (FPGA-shaped)**
+
+`wat-rs/docs/CIRCUIT.md` articulates this: a wat program is a
+circuit. Programmer-built. Fixed topology. Signals flow
+through wires once powered. The substrate IS programmable in
+the FPGA sense — you arrange the gates at programming time;
+once running, the wiring is fixed.
+
+`:user::main` constructs all pipes, plugs each into its
+consumer, and starts the input stream. That's its entire job.
+No computation in main; no I/O; no state. Just wiring. **The
+shape of `:user::main` is the wiring diagram.**
+
+**Framing 2 — Services as AWS analogs (the mini-AWS framing)**
+
+The services running inside each wat-vm are deliberately
+shaped like distributed-system primitives. The user's
+verbatim mapping:
+
+| wat-vm service | AWS analog |
+|---|---|
+| LRU cache service (`:wat::lru::CacheService`) | Redis / ElastiCache |
+| Console service (stdio output stream) | ECS / Fargate container output |
+| Telemetry service (`:wat::telemetry::*`) | CloudWatch Logs + Metrics |
+
+Plus the kernel primitives that make it all work:
+- Channels = inter-service messaging (like SQS / EventBridge)
+- HandlePools = connection pooling (like RDS Proxy)
+- Spawn / fork = service instances (like ECS task launches)
+- Hermetic test execution = sandboxed runs (like Lambda invocations)
+- mTLS + signed eval (when shipped) = IAM + cryptographic
+  request signing
+
+**Each wat-vm IS a mini AWS on the laptop.** The constraints
+(typed channels everywhere, RPC-like service comms, no shared
+memory shortcut, service isolation, authentication) are
+EXACTLY the constraints distributed systems face. By
+prototyping locally with those constraints, the eventual
+distribution becomes possible WITHOUT REWRITES.
+
+### Why these two framings compose
+
+- The CIRCUIT framing tells you what each wat-vm IS internally:
+  a fixed-topology arrangement of services + wires (a circuit;
+  an FPGA-configured node).
+- The MINI-AWS framing tells you what each wat-vm DOES: hosts
+  stateful services that talk RPC-like (a node in a
+  distributed system).
+- The WAT-NETWORK framing tells you how nodes COMPOSE: many
+  circuits, each a mini-AWS, connected via mTLS + signed
+  queries + content-addressed programs.
+
+**The recursion is intentional.** A wat program is a circuit.
+A circuit hosts services. Services talk RPC-like. The wat-vm
+runs the circuit. Multiple wat-vms form a network. The
+network's nodes talk RPC-like (RemoteProgram). The internal
+patterns scale to the external patterns because the patterns
+were chosen FOR distribution from the start.
+
+### What this means for the wat network architecture
+
+The wat network isn't "let's add networking to a local
+substrate." It's "the distributed-systems patterns the
+substrate was already shaped around finally extend to multiple
+machines."
+
+The user has been building the local testbed for years. The
+discipline (typed channels; service isolation; RPC-like
+comms; no shared memory shortcut; content-addressed programs;
+signed eval; mTLS) was always going to make the move to the
+network straightforward — because the constraints have been
+honored locally all along.
+
+When a node joins the wat network, it's the same wat-vm
+running the same kind of circuit hosting the same kind of
+services. It just gains the ability to call OTHER nodes'
+services via RemoteProgram (Tier 4: in-network mode). The
+patterns inside each node and the patterns between nodes are
+the same patterns. **Recursion all the way down.**
+
+This is part of what makes ✅✅✅ Honest land for the wat
+network: the network model isn't a layer bolted onto local
+semantics; it's local semantics extended to multiple
+machines. The constraints honored locally are the constraints
+that make distribution work. Not "we'll figure out
+distribution later" — "distribution is what we've been
+preparing for."
+
 ## The architecture
 
 ```
