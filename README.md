@@ -5,9 +5,35 @@ but not yet polished. Notes survive Claude conversation
 compaction because they live on disk outside the conversation
 history.
 
-This directory is the user's private scratch repo
-(`git@github.com:watmin/scratch.git`). Not a production
-codebase; not a repo of record. Just durable.
+The user's scratch repo. Not a production codebase; not a repo
+of record. Just durable.
+
+## A note for readers
+
+This scratch references **private companion repositories**
+that aren't included here:
+
+- `wat-rs/` — the wat substrate (Lisp on Rust runtime,
+  type system, evaluator, kernel). Many arcs reference its
+  `docs/arc/` tree (e.g. `wat-rs/docs/arc/2026/04/058-...`)
+  and its `crates/` tree (e.g. `wat-rs/crates/wat-lru/`).
+  These paths point at private context.
+- `holon-lab-trading/` — the trading-lab application that
+  exercises the substrate. Some arcs reference its
+  `docs/proposals/` and `docs/drafts/` trees.
+- A `~/.claude/projects/.../memory/` layer with `feedback_*.md`,
+  `project_*.md`, `user_*.md`, and `reference_*.md` entries
+  that capture cross-conversation discipline. These are
+  per-user; the references are honest historical artifacts.
+
+The scratch is **the design half** of the work. The
+implementation half lives in the private repos. Reading
+scratch alone gives you the WHY and the WHAT; the HOW lives
+in code you can't see from here.
+
+This is intentional. Some arcs may eventually graduate into
+public substrate work; until then, the scratch is the public
+trace of how the design surfaces.
 
 ## Organization
 
@@ -44,7 +70,18 @@ thread, move it into a new arc directory and seed
 2026/04/013-wat-common-erlang-flavor/
 2026/05/001-memory-as-hologram/
 2026/05/002-og-wat-lineage/
+2026/05/003-wat-fmt/                             foundation tier — formatter
+2026/05/004-wat-lint/                            foundation tier — linter
+2026/05/005-wat-cov/                             foundation tier — coverage
+2026/05/006-wat-doc/                             foundation tier — documentation
+2026/05/007-remote-program/                      app tier — typed remote calls (in-progress design)
+2026/05/008-kwarg-macros/                        substrate-tier pattern; remote-program dep
 ```
+
+The `2026/05/003-006` arcs together form the **foundation
+toolkit quartet** — a sketched-toward-parity design for
+formatter, linter, coverage, documentation. None of them have
+shipped as code yet; the arcs are the design.
 
 Each arc dir has its own `INDEX.yaml` listing the beats inside it
 and a `README.md` orienting a reader to what's there. Open the
