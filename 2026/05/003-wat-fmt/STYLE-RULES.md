@@ -1080,16 +1080,169 @@ enforces what's valid.
 
 ---
 
-## §10 — Quote and quasiquote ❓ DRAFT
+## §10 — Quasiquote / unquote / unquote-splicing ✅
 
-### Rule 30 ❓ — Quote stays in `(quote ...)` form
+User locked 2026-05-02 with "i trust your gut... we'll tweak it
+later if necessary." All three sub-rules and six edge-case
+defaults locked per the proposal in the chat.
 
-wat doesn't have reader macros (`'foo` for `(quote foo)`). All
-quotes are explicit. wat-fmt formats `(quote foo)` per Rule 13/14
-and friends; nothing special.
+**Important correction to earlier draft:** the prior version of
+this rule claimed wat doesn't have reader macros. WRONG. wat-rs
+ships reader macros for all three:
 
-If quasiquote / unquote primitives ship later (`,` and `,@`-like
-forms), this rule needs revision.
+| Reader macro | Desugars to |
+|---|---|
+| `` `form `` | `(:wat::core::quasiquote form)` |
+| `,sym` | `(:wat::core::unquote sym)` |
+| `,@sym` | `(:wat::core::unquote-splicing sym)` |
+
+Confirmed in `wat-rs/src/parser.rs:151-153`. All real-world
+wat code (Reject.wat, Ngram.wat, test.wat) uses the
+reader-macro shorthand exclusively; nobody writes the explicit
+FQDN form.
+
+### Rule 30 ✅ — Reader macros formatted as shorthand, transparent to wrapped form
+
+User locked. Three sub-rules, all transparency-based.
+
+**Sub-rule 30a — Reader-macro shorthand is the canonical form.**
+When the formatter encounters `:wat::core::quasiquote` /
+`:unquote` / `:unquote-splicing` in the AST, it emits the
+shorthand (`` ` ``, `,`, `,@`), never the explicit FQDN form.
+Even if the user wrote the FQDN, the formatter normalizes to
+shorthand.
+
+```scheme
+;; AST: (:wat::core::quasiquote (some form))
+;; emitted as:
+`(some form)
+;; NEVER as:
+(:wat::core::quasiquote (some form))
+```
+
+**Sub-rule 30b — Reader macro directly attached to following
+form, no space.**
+
+```scheme
+;; YES
+`(form)
+,symbol
+,@symbol
+
+;; NO — space between reader macro and form
+` (form)
+, symbol
+,@ symbol
+```
+
+**Sub-rule 30c — Quasiquote is transparent to its wrapped
+form's layout.** The wrapped form follows whatever rule applies
+to it (define / vec / cond / etc.). The backtick rides on the
+same line as the form's open paren; the form's internal
+structure isn't affected by being quasiquoted.
+
+```scheme
+;; backtick + multi-line define inside — define follows Rule 14
+`(:wat::core::define
+   (,name -> :wat::test::TestResult)
+   ,body)
+```
+
+### Locked defaults for the six edge cases
+
+- **EQ1 (always normalize to shorthand):** YES. AST FQDN forms
+  emit as shorthand on output. Per 30a.
+- **EQ2 (no space between reader macro and form):** YES.
+  Per 30b.
+- **EQ3 (wrapped form's layout follows its own rule):** YES.
+  Per 30c. Quasiquote is purely a syntactic prefix.
+- **EQ4 (nested quasiquotes):** Each level handled independently.
+  No special escape syntax beyond what wat already provides.
+  Formatter emits the AST faithfully without trying to be
+  clever about depth-aware unquoting.
+- **EQ5 (`,@` in non-list position):** Substrate type-checker's
+  problem; the formatter emits as written. wat-lint flags
+  suspect uses.
+- **EQ6 (multi-line argument to unquote):** Comma sits on the
+  line where the call starts; the call's internal structure
+  follows the call's rule. Same transparency principle as 30c.
+
+```scheme
+;; long unquoted call wraps per the call's rule
+,(some-long-call
+   arg-1
+   arg-2)
+```
+
+### Canonical examples (matching real-world wat)
+
+**Simple splice into a call (from `test.wat:228-231`):**
+```scheme
+(:wat::core::defmacro
+  (:wat::test::program & (forms :AST<wat::core::Vector<wat::WatAST>>)
+    -> :AST<wat::core::Vector<wat::WatAST>>)
+  `(:wat::core::forms ,@forms))
+```
+
+**Multi-arg expansion with multiple unquotes (from
+`wat/holon/Reject.wat`):**
+```scheme
+(:wat::core::defmacro
+  (:wat::holon::Reject
+    (x :AST<wat::holon::HolonAST>)
+    (y :AST<wat::holon::HolonAST>)
+    -> :AST<wat::holon::HolonAST>)
+  `(:wat::holon::Blend
+     ,x
+     ,y
+     1.0
+     (:wat::core::- 0.0
+       (:wat::core::/ (:wat::holon::dot ,x ,y)
+                           (:wat::holon::dot ,y ,y)))))
+```
+
+**Nested forms with splice + unquote (from `test.wat:310-322`):**
+```scheme
+`(:wat::core::define (,name -> :wat::test::TestResult)
+   (:wat::kernel::run-sandboxed-ast
+     (:wat::core::forms
+       ,@prelude
+       (:wat::core::define
+         (:user::main
+           (stdin  :wat::io::IOReader)
+           (stdout :wat::io::IOWriter)
+           (stderr :wat::io::IOWriter)
+           -> :wat::core::unit)
+         ,body))
+     (:wat::core::Vector :wat::core::String)
+     :wat::core::None))
+```
+
+### Why this shape
+
+- **Transparency is the principle.** Reader macros are syntactic
+  sugar that doesn't affect the wrapped form's structure. The
+  formatter respects that — formats wrapped forms by their own
+  rules; the reader macro is just a prefix character.
+- **Shorthand is universal in real wat code.** No existing code
+  uses the FQDN form; canonicalization to shorthand matches
+  what users actually write.
+- **No space anywhere.** Lisp tradition. `` `(form) ``,
+  `,sym`, `,@sym` are all atomic visually.
+- **Compositionality.** Quasiquote inside lambda inside let*
+  inside define all compose by each form following its own
+  rule; the reader macros add no constraint.
+
+### Tweak point flagged
+
+User direction: *"we'll tweak it later if necessary."* Likely
+candidates for future revision:
+- If real-world defmacro bodies grow patterns that the
+  current rule emits awkwardly
+- If nested quasiquote becomes common enough to warrant a
+  more sophisticated layout
+- If wat adds new reader macros (e.g., a `'sym` for plain
+  quote — currently `(quote ...)` is explicit)
 
 ---
 
