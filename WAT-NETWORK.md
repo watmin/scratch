@@ -214,6 +214,112 @@ that make distribution work. Not "we'll figure out
 distribution later" — "distribution is what we've been
 preparing for."
 
+## Backpressure and rhythm — flow control as a structural property
+
+User direction (2026-05-03, after the mini-AWS framing):
+
+> *"you can review the zero mutex one too - its modeled after
+> tcp... and the comms between services.. the stdin,out pipes..
+> those are like queues.. and the blocking is a nature backoff,
+> release valve..*
+>
+> *the system has a rythem to it.. the slowest component isn't
+> constant but the system is held back by whatever the current
+> slow thing is"*
+
+### What's already in the substrate
+
+`wat-rs/docs/ZERO-MUTEX.md` articulates the local mechanism:
+**mini-TCP via paired bounded(1) channels.** Producer writes on
+one pipe; blocks on the companion pipe until the consumer
+signals "done." Two pipes per producer; mutually blocking
+through the substrate's rendezvous discipline.
+
+The substrate refuses (compile-time, arc 126) to construct
+unbounded shared state. Every channel is bounded; every
+producer can be blocked; the architecture FORCES a flow-control
+discipline at every comm boundary.
+
+### The new framing — backpressure as natural rhythm
+
+The user's insight extends the mini-TCP framing into a
+runtime property:
+
+- Bounded channels + blocking = backpressure built in
+- The slowest component throttles upstream producers
+  AUTOMATICALLY; no explicit flow-control protocol; no
+  rate-limiter; no backoff calculation
+- The bottleneck SHIFTS over time depending on workload;
+  it's not a constant
+- The system finds its natural pace at any moment based on
+  what's currently slow
+- **The system has a rhythm.** The pace isn't hardcoded; it's
+  emergent from the pipeline's current bottleneck
+
+This is the same flow-control discipline TCP uses (window
+size, backoff). Same as any healthy queue-based system. The
+substrate doesn't bolt flow control on; **flow control is what
+bounded channels with blocking ARE.**
+
+### Why this matters for the wat network
+
+When nodes communicate via RemoteProgram, the wire is the
+channel; bounded buffering at each end provides natural
+backpressure; if a remote node is overloaded, the local caller
+blocks; **the system finds equilibrium without explicit flow
+control across the wire.**
+
+The local pattern (bounded channels; producer blocks until
+consumer is ready; system rhythm emerges) extends to the
+network pattern (bounded wire buffers; remote caller blocks
+until remote handler is ready; cluster rhythm emerges).
+
+**Backpressure is structural, both locally and across the
+network.** Not aspirational; not bolted on; not "remember to
+add rate limiting." The substrate's discipline is: every
+bounded channel CAN block; the producer WILL block when the
+consumer is slow; the system finds its pace.
+
+### Per the four questions on rhythm
+
+- **Obvious?** ✅ — bounded channels with blocking; the
+  pace is visible at runtime via the queue depths
+- **Simple?** ✅ — one mechanism (block on full queue); no
+  separate flow-control protocol; no rate-limiter API
+- **Honest?** ✅✅ — the slowest component IS the bottleneck;
+  nothing pretends otherwise; no hidden buffering that would
+  lie about effective throughput; the system literally cannot
+  pretend to be faster than its slowest part
+- **Good UX?** ✅ — wat code doesn't have to think about flow
+  control; the substrate handles it; same code works at any
+  pace
+
+Strong shape. Not triple-checkmark (rhythm is a derived
+property, not a fundamental architectural decision), but
+✅✅ Honest is meaningful: the substrate cannot lie about
+throughput because the channels block honestly.
+
+### The fourth pattern that scales naturally
+
+Adding to the list of "patterns the substrate honors locally
+that scale naturally to the network":
+
+| Pattern | Local | Network |
+|---|---|---|
+| Typed channels | `:wat::kernel::Channel<T>` | RemoteProgram's typed contract |
+| RPC-like service comms | mini-TCP via bounded(1) | RemoteProgram call/response |
+| Service isolation | spawn-program; one-thread-per-service | nodes in the network |
+| **Backpressure** | **bounded channels + blocking** | **bounded wire buffers + blocking** |
+| Cryptographic identity | (per-process; OS-level) | mTLS per-node |
+| Content-addressing | (digest forms in the substrate) | digests carry across the wire |
+| Verifiable execution | (signed eval forms in the substrate) | signed queries between nodes |
+
+Every row is the same pattern at different scales. The local
+discipline IS the distributed discipline. The substrate has
+been distributed-from-the-start because it has been
+constraint-honoring-from-the-start; the constraints are the
+constraints distribution requires.
+
 ## The architecture
 
 ```
