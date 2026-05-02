@@ -974,52 +974,107 @@ apply.
 
 ---
 
-## §7 — FQDN handling ❓ DRAFT
+## §7 — Symbols and FQDN handling ✅
 
-### Rule 23 ❓ — Never wrap an FQDN
+User locked 2026-05-02 with the principle:
 
-`:wat::holon::HolonAST` always stays on one line, regardless of
-context. If a function call's head FQDN doesn't fit at the
-parent's indent, the call breaks BEFORE the head (extending the
-parent's wrap), not inside the FQDN.
+> "symbols in wat cannot contain whitespace - they are as long as
+> they are - long names are a visual indicator for a type alias"
+
+This is the unifying principle behind Rules 23, 24, AND 13c
+(long FQDN in let* binding). Stated clearly:
+
+### The atomicity-and-signal principle
+
+**Symbols are atomic.** The formatter cannot break them. No
+wrapping inside an FQDN; no inserting whitespace in a type
+sigil; no truncation; no abbreviation. What the symbol IS is
+what gets emitted, in full, on whatever line it lands.
+
+**Long symbols are a SIGNAL, not a problem to fix.** When a
+name is long enough to push a line past 120 cols, the formatter
+leaves the over-length line alone. That visible over-length is
+**the formatter telling you, visually, that you should make a
+type alias.** Hiding the length via wrapping would mask the
+signal; preserving the length surfaces it.
+
+**The formatter conserves information by refusing to fix.** It
+doesn't lint, doesn't refactor, doesn't auto-alias. It lays the
+length bare so the lint signal lands on the user.
+
+This is a **feedback-loop principle**, not just a layout rule.
+The formatter is part of how wat tells you "your naming has
+drifted; make an alias."
+
+### Rule 23 ✅ — Symbols (including FQDNs) never wrap
+
+`:wat::holon::HolonAST` always stays on one line. If a call's
+head FQDN doesn't fit at the parent's indent, the CALL breaks
+before the head (extending the parent's wrap), not inside the
+symbol. If the symbol itself is so long that no breaking helps,
+the line stays over-length and the visible smell points at
+"alias this."
 
 ```scheme
-;; YES — wrap the call, not the FQDN
+;; YES — wrap the call's args, not the FQDN
 (:user::wrapper-fn arg-1
                    :wat::holon::HolonAST/some-very-long-method-name)
 
-;; NO — never break inside the FQDN
+;; NO — never break inside the FQDN (this isn't even legal wat)
 (:user::wrapper-fn arg-1
                    :wat::holon::HolonAST/some-very-long-
                                          method-name)
+
+;; YES — over-length line stays over-length; the LENGTH is the signal
+(:user::wrapper-fn :wat::holon::HolonAST/an-egregiously-named-method-call-that-blows-past-120)
+;; ↑ formatter doesn't try to fix; user reads "I should alias this"
 ```
 
-### Rule 24 ❓ — Reject illegal whitespace in `<>`, `:(...)`, `:fn(...)`, `:[...]`
+### Rule 24 ✅ — Reject illegal whitespace in type sigils
 
-Per the existing CHEATSHEET rule (and what `/ignorant` enforces).
-wat-fmt rejects input that has it with a clear "this isn't valid
-wat syntax" diagnostic, pointing at the exact offending character.
+`<>`, `:(...)`, `:fn(...)`, `:[...]` cannot contain whitespace
+at the wat parser level (per CHEATSHEET, enforced by `/ignorant`).
+Listed here as a Rule 24 entry because users may try to "format"
+code that has illegal whitespace and expect wat-fmt to fix it.
+**wat-fmt does NOT fix — it rejects with a parse diagnostic
+pointing at the offending character.**
 
 ```scheme
-;; YES
+;; YES — atomic type sigils
 :Atom<HolonAST>
 :fn(:i64,:i64) -> :i64
 
-;; NO — wat-fmt errors at the space
+;; PARSE ERROR — wat-fmt errors at the space
 :Atom< HolonAST >
 :fn(:i64, :i64) -> :i64
 ```
 
-(This is a parse-time error, not a format-time choice. Listed
-here because users may try to "format" code that has this and
-expect wat-fmt to fix it. wat-fmt does NOT fix; it rejects with
-diagnostic.)
+This is a parse-time error, not a format-time choice. Same
+principle as Rule 23: the formatter doesn't fix what's
+substrate-illegal; it surfaces it as an error.
+
+### How this composes with other rules
+
+- **Rule 13c (long FQDN in let* binding)** — same principle
+  applied to a let* binding: don't wrap; let the line be
+  over-length; the over-length screams "make a type alias."
+- **Rule 22 (HashMap k-v alignment rejected)** — same family
+  of "formatter doesn't mask smells" thinking; column alignment
+  would mask "your keys are inconsistently named."
+- **Future wat-lint rule** — over-length lines from oversized
+  symbols become lint warnings: *"this symbol is N chars; consider
+  a type alias."* The formatter sets up the lint signal by
+  preserving the length; the linter delivers the message.
 
 ---
 
-## §8 — Type annotations ❓ DRAFT
+## §8 — Type annotations ✅
 
-### Rule 25 ❓ — Tight binding to parameter
+User locked 2026-05-02 with "we're good — we'll make this later
+— our notes are good." Rules 25 + 26 follow the
+atomicity-and-signal principle from §7.
+
+### Rule 25 ✅ — Type tight to parameter
 
 ```scheme
 ;; YES
@@ -1035,48 +1090,76 @@ diagnostic.)
   :U))
 ```
 
-### Rule 26 ❓ — Return arrow on the signature line
+`(x :T)` is one structural unit. The space between name and
+type is exactly one character; the type sigil is atomic per
+Rule 24.
+
+### Rule 26 ✅ — Arrow stays on the signature line (mostly moot post-Rule 14)
+
+The principle: don't break just the arrow.
 
 ```scheme
-;; YES
+;; YES — arrow rides with the signature
 (define (:user::foo (x :T) -> :U) body)
 
-;; NO
+;; NO — arrow alone on a wrap line
 (define (:user::foo (x :T)
                     -> :U) body)
 ```
 
-If the signature including `-> :T` doesn't fit, wrap the WHOLE
-signature to its own line per Rule 14.
+**Note:** Rule 26 was sketched before Rule 14 went
+always-vertical. With Rules 14 / 14b / 14c locked, define /
+lambda / defmacro signatures always wrap to vertical regardless,
+and the arrow gets its own line as part of the vertical
+signature. Rule 26 is largely subsumed for those forms.
+
+Rule 26 still applies to OTHER places where signatures appear
+(e.g., function-call type annotations, lambda-as-value in
+non-binding contexts) — same principle: if the signature wraps,
+the WHOLE signature wraps; never just the arrow on its own.
 
 ---
 
-## §9 — Atoms and literals 🔧 OPEN
+## §9 — Atoms and literals ✅
 
-### Rule 27 🔧 — String literal preservation
+User locked 2026-05-02. All three rules follow the
+atomicity-and-signal principle from §7: the formatter doesn't
+rewrite primitive literals; the user's choices are preserved
+verbatim.
 
-Strings preserved character-for-character. No rewrapping. No
-canonicalization of escapes. (User: confirm? or should `ÿ`
-get normalized to its Unicode form, etc.?)
+### Rule 27 ✅ — String literals preserved character-for-character
 
-### Rule 28 🔧 — Integer / float canonicalization
+Strings pass through unchanged. No rewrapping; no escape
+canonicalization (`ÿ` stays as `ÿ`, never normalized
+to `ÿ` or vice versa); no quote-style normalization.
 
-Decision needed:
-- Strict preservation (e.g., `1_000_000` stays as written)
-- Canonicalize to no-separators (`1000000`)
-- Canonicalize to with-separators every-3-digits (`1_000_000`)
+The parser enforces what's valid (escape sequences, encoding);
+the formatter doesn't second-guess.
 
-Most formatters either strict-preserve or canonicalize-with-
-separators. Recommendation: **strict preservation** for v1; user
-can override later if the file looks inconsistent.
+### Rule 28 ✅ — Integer / float strict preservation
 
-### Rule 29 🔧 — Keyword / symbol canonicalization
+Numeric literals preserved as written. `1_000_000` stays as
+`1_000_000`; `1000000` stays as `1000000`; `0x_DEAD_BEEF` stays
+as written; `1.5e10` stays in scientific form.
 
-- Always lowercase keywords? Or preserve case?
-- `nil` vs `NIL` vs `Nil`?
+The user's choice of separators / radix / notation IS information
+about intent (separators for readability of magic constants;
+hex for bit patterns; scientific for very-large/small). The
+formatter preserves intent.
 
-Recommendation: **strict preservation**; the parser already
-enforces what's valid.
+If the file's numeric style ends up inconsistent (e.g.,
+`1_000` next to `2000`), that's a wat-lint signal, not a
+wat-fmt fix.
+
+### Rule 29 ✅ — Keywords / symbols strict preservation
+
+Case preserved as written. The parser already enforces what's
+valid (per CONVENTIONS: kebab-case for verbs, CamelCase for
+types, snake_case for nothing); the formatter doesn't
+double-enforce.
+
+`nil` stays `nil`; `Nil` stays `Nil`; `:Foo` stays `:Foo`.
+Whatever the parser accepts, the formatter emits.
 
 ---
 
@@ -1246,17 +1329,20 @@ candidates for future revision:
 
 ---
 
-## §11 — Multi-line strings 🔧 OPEN
+## §11 — Multi-line strings 🔧 DEFERRED
 
-### Rule 31 🔧 — Multi-line string handling
+### Rule 31 🔧 — Multi-line string handling — deferred until syntax settles
 
-If wat supports multi-line string literals (heredoc or triple-
-quote), the formatter should preserve them verbatim INCLUDING
-internal whitespace. But the surrounding form's indentation
-shouldn't break the string's content.
+If/when wat ships multi-line string literals (heredoc or
+triple-quote), the rule will be: **preserve verbatim including
+internal whitespace; surrounding form's indentation does not
+break the string's content.** Same atomicity-and-signal
+principle from §7 — string literals are atomic primitives;
+the formatter doesn't reflow them.
 
-Decision needed once multi-line string syntax is settled in
-wat-rs.
+**Status: deferred** until wat-rs ships multi-line string
+syntax. No decision needed today. When the syntax lands, this
+rule activates with the obvious interpretation.
 
 ---
 
