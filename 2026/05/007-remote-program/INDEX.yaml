@@ -60,6 +60,82 @@ arc:
     firm up. The arc gets the slice plan when at least Q8,
     Q1, Q2, Q4 have been answered.
 
+  refinement-2026-05-03-rpc-as-data: |
+    User stepped away to digest, then came back with a deeper
+    framing question that reshaped the whole arc:
+
+    > "heh.. the release of the ideas is allowing new ones to
+    > form...
+    >
+    > i questioned... why do i even want remote programs.... its
+    > an obvious next step .. but the protocol around it.. why
+    > do i want something to run on a remote host..
+    >
+    > its because that remote host can do something i can't...
+    > it could be a database.. it could be a file system i can't
+    > access.. its a way to do data retrieval when no such local
+    > access exists...
+    >
+    > we could 'run prgrams' that are just something like a ddb
+    > query.... where its basiclaly just an s3 get object...
+    > where we need to do an EFS read on something we don't have
+    > mounted...
+    >
+    > this is a way to communciate RPCs as data?.."
+
+    LOAD-BEARING REFRAME. RemoteProgram isn't about running wat
+    code elsewhere — it's about typed access to capabilities
+    that live elsewhere. Two framings:
+
+    - WRONG: "remote-execution framing" (I want my wat to run
+      elsewhere; implies the other side is wat)
+    - RIGHT: "typed-capability-bridge framing" (I want typed
+      access to capabilities that live elsewhere; the other
+      side is whatever fulfills the contract)
+
+    Implications captured in DESIGN.md:
+
+    1. The wat-vm becomes the universal client. Any capability
+       gets a typed bridge; the SDK problem dissolves into the
+       wire protocol — one wire; many bridges.
+    2. The other side is polyglot — wat, Rust shim wrapping
+       SDKs, Python service, anything that speaks the wire.
+    3. Q6 error taxonomy gets richer naturally (each capability
+       brings its own application errors via the E enum).
+    4. The four-tier model gains semantic clarity (each tier
+       corresponds to where capabilities live in modern
+       deployment topologies — sidecar / localhost / managed
+       service / service mesh).
+
+    Per the four questions on the reframe:
+    - Obvious: ✅✅
+    - Simple: ✅
+    - Honest: ✅✅
+    - Good UX: ✅✅
+
+    Same shape as auto-kwargs (arc 008) and Ok/Err (this arc
+    Q-channel) wins: the constraint moves into the type
+    system; the wire is a typed conduit; what's on the other
+    side fulfills the type or doesn't.
+
+    OUTCOME: DESIGN.md gets a new top-level section "What
+    RemoteProgram actually IS — typed capability access".
+    Q8 flipped from ❓ OPEN to ✅ ANSWERED — the first
+    consumer is the GENERAL PATTERN; specific shim choice
+    is a slice 1 implementation detail, not a design
+    question.
+
+    Status: arc 007 has now answered Q3 (EDN wire),
+    Q-channel (Ok/Err multiplexed), and Q8 (typed-capability-
+    bridge framing). Still ❓ OPEN: Q1, Q2, Q4, Q5, Q6, Q7.
+    The reframe makes the remaining open questions easier to
+    answer because the architecture is grounded in a clearer
+    purpose.
+
+    User direction on capture:
+    > "update whatever docs you believe are appropriate... i'll
+    > digest and come back when my brain mandates it"
+
   refinement-2026-05-03-multiplexed-channels: |
     User identified the load-bearing protocol decision after
     we returned to RemoteProgram from the kwarg-macros tangent:

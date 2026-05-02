@@ -6,6 +6,127 @@ ready to receive its answer.
 
 ---
 
+## What RemoteProgram actually IS — typed capability access
+
+**Reframe captured 2026-05-03 mid-flow** after the user
+questioned why RemoteProgram exists at all:
+
+> *"i questioned... why do i even want remote programs.... its
+> an obvious next step .. but the protocol around it.. why do
+> i want something to run on a remote host..*
+>
+> *its because that remote host can do something i can't... it
+> could be a database.. it could be a file system i can't
+> access.. its a way to do data retrieval when no such local
+> access exists...*
+>
+> *we could 'run prgrams' that are just something like a ddb
+> query.... where its basiclaly just an s3 get object... where
+> we need to do an EFS read on something we don't have
+> mounted... this is a way to communciate RPCs as data?.."*
+
+**RemoteProgram is RPC-as-data.** The wat-side surface is a
+typed function call. What's on the other side fulfills the
+typed contract. The fact that the implementation lives
+elsewhere is secondary to the fact that the wat-vm needs
+typed access to a capability that lives elsewhere.
+
+### Two framings — pick the right one
+
+- **Remote-execution framing** (the wrong one): "I want my
+  wat code to run elsewhere." Implies the other side runs wat;
+  emphasizes wat-program portability.
+
+- **Typed-capability-bridge framing** (the right one):
+  "I want typed access to capabilities that live elsewhere."
+  Implies the other side is whatever fulfills the contract;
+  emphasizes wat as a universal client.
+
+The second framing is much more useful. The first consumer
+isn't "wat-mcp talking to LLMs" specifically — it's
+**whatever capability the user needs typed access to first.**
+That could be:
+
+- An S3 / DynamoDB / EFS shim
+- An LLM API (Anthropic / OpenAI / similar)
+- A local sidecar service
+- A pre-existing REST/gRPC API the user wraps in a wire shim
+- A peer wat program (the one case where the other side IS wat)
+
+**The wat consumer doesn't care which.** They see
+`:wat::remote::Program<:I, :O>`. The typed contract is what's
+promised. Implementation is implementation detail.
+
+### What this means architecturally
+
+You're building **a typed-capability-bridge substrate**, not a
+remote-execution substrate. The implications:
+
+1. **The wat-vm becomes the universal client.** Any capability
+   gets a typed bridge; wat code talks to bridges, not
+   services. The SDK problem (every external system has its
+   own SDK with its own conventions) dissolves into the wire
+   protocol — one wire; many bridges.
+
+2. **The other side is polyglot.** Anything that speaks the
+   wire protocol can serve a RemoteProgram call. wat program;
+   Rust shim wrapping `aws-sdk-rust`; Python service; C
+   process — all valid implementations of the typed contract.
+   The consumer sees only the contract.
+
+3. **The error taxonomy (Q6) gets richer naturally.** Each
+   capability brings its own application errors (table-not-
+   found, throttling, quota-exceeded) that ride the Err
+   channel via the E enum. Transport errors (connection-lost,
+   timeout, mTLS-rejected) ride the same Err channel.
+   Wire-format errors (malformed-response-from-shim) too. All
+   one channel; rich variants in the application's E enum.
+
+4. **The four-tier model gains semantic clarity.** Each tier
+   corresponds to where the capability lives:
+   - **Tier 1 (Unix domain)**: capability lives in another
+     process on the same host (sidecar pattern; local services)
+   - **Tier 2 (localhost HTTP)**: capability lives in another
+     process on the same host but uses HTTP framing (legacy
+     services; container-network sidecar pattern)
+   - **Tier 3 (remote HTTPS)**: capability lives on a remote
+     host with managed TLS (managed services; SaaS APIs)
+   - **Tier 4 (remote mTLS)**: capability lives on a remote
+     host in a zero-trust network (peer services; service
+     meshes)
+
+   Each tier corresponds to a real category of "where capabilities
+   live in modern systems." The four-tier model wasn't arbitrary
+   — it was naming the actual deployment topology.
+
+### Per the four questions on the reframe
+
+- **Obvious?** ✅✅ — once "RPC as data" lands, the API
+  shape is unmistakable
+- **Simple?** ✅ — the wat-side surface is the same
+  regardless of what's on the other side
+- **Honest?** ✅✅ — the type contract is what's promised;
+  transport is honest about being transport; bridges are
+  honest about being bridges
+- **Good UX?** ✅✅ — wat code accesses external systems via
+  typed APIs without learning N SDKs; one mental model
+
+Same shape as the auto-kwargs (arc 008) and Ok/Err
+(this arc, Q-channel) triple-checkmark wins: **the constraint
+moves into the type system, where it belongs.** The wire is
+a typed conduit; the other side fulfills the type or doesn't;
+nothing else matters at the wat level.
+
+### Naming holds; semantics sharpened
+
+"RemoteProgram" still works — the conceptual model is
+program-shaped (typed input → typed output) regardless of
+what implements it. The user might call shim implementations
+"RemoteService" / "Bridge" / "Adapter" but the wat-side type
+stays `:Program<:I, :O>`.
+
+---
+
 ## The four questions are the design compass
 
 Per the established discipline (carried from the foundation
@@ -311,31 +432,39 @@ Q1, Q2, Q4 (load-bearing architecture), then Q5, Q6, Q7
 
 ---
 
-## ❓ OPEN — Q8: Who is the first consumer?
+## ✅ ANSWERED — Q8: Who is the first consumer?
 
-Knowing the first concrete consumer grounds every other
-decision. SimpleCov-style: design for the real use case;
-generalize when a second consumer surfaces.
+Per the 2026-05-03 reframe (see top-of-file
+"What RemoteProgram actually IS"): **the first consumer isn't
+a specific service — it's the typed-capability-bridge pattern
+itself.** Whatever capability the user needs typed access to
+first becomes the slice 1 deliverable.
 
-**Candidates I can imagine** (user knows better):
-- Trading lab calling exchange APIs (HTTPS / mTLS for some
-  venues)
-- wat-mcp talking to LLM APIs (HTTPS to Anthropic / OpenAI)
-- Inter-service comms in a future wat-microservices shape
-  (Unix domain or mTLS)
-- Distributed wat-vm calls (Unix domain locally; mTLS across
-  machines)
-- A telemetry collector / shipping pattern (mTLS to a remote
-  sink)
+The reframe shifted the question from "which wat program runs
+remotely first?" to "which external capability needs typed
+access first?" Candidates of the SECOND form are richer:
 
-**The consumer determines:**
-- Which tiers ship in slice 1 (probably whichever the first
-  consumer needs)
-- Persistent vs per-call connection model (Q2)
-- Whether server-side ships in v1 (Q4)
-- Streaming need or one-shot (Q5)
+- An S3 / DynamoDB / EFS shim (AWS data plane)
+- An LLM API (Anthropic / OpenAI / similar)
+- A local sidecar service
+- A pre-existing REST/gRPC API wrapped in a wire shim
+- A peer wat program (the one case where the other side IS wat)
 
-**Awaiting user answer.**
+**The arc designs for the GENERAL pattern.** Whatever specific
+shim ships first is a slice 1 deliverable — the user picks
+based on what they need. No need to lock the specific shim at
+design time; the design accommodates all of them via the
+typed-capability-bridge framing.
+
+**The consumer-specific slice 1 still determines:**
+- Which tier ships first (probably the one the chosen consumer
+  needs — Unix domain for local sidecars; HTTPS for AWS/LLMs;
+  mTLS for service-mesh peers)
+- Connection model details (Q2; persistent baseline holds)
+- Streaming need or one-shot (Q5; depends on capability shape)
+
+But these are slice-1 IMPLEMENTATION choices, not arc-shaping
+DESIGN questions. The general pattern accommodates all.
 
 ---
 
