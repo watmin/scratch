@@ -627,7 +627,137 @@ Same shape as multi-clause `:cond`:
   boolean operators (separate "short binary form" rule when
   we get to it)
 - `:wat::core::Result/expect` / `:wat::core::Option/expect` —
-  extraction with panic-on-failure
+  extraction with panic-on-failure (Rule 19b — different shape)
+
+---
+
+## §5b — Try and Expect families ✅
+
+### Rule 19 ✅ — `:try` family is always two lines
+
+User locked 2026-05-02. Covers `:wat::core::Result/try`,
+`:wat::core::Option/try`, and the retired `:wat::core::try`
+(kept hooked only for migration diagnostics; same shape applies
+for as long as it lingers).
+
+**Substrate constraints (verified):**
+- `Result/try` and `Option/try` take EXACTLY 1 arg
+- No return type annotation (return type inferred from
+  enclosing function's `:Result<T,E>` or `:Option<T>`
+  signature)
+- One body expression only
+
+**Shape:**
+- Keyword alone on line 1
+- The single arg on line 2 indented 2
+- **Always two lines** — even when the arg fits on the same
+  line as the head. The "fits-on-one-line" exception is gone.
+
+**Canonical:**
+```scheme
+(:wat::core::Result/try
+  (:wat::kernel::spawn-program src :wat::core::None))
+
+(:wat::core::Option/try
+  (:wat::core::HashMap/get table key))
+
+(:wat::core::try
+  body)
+```
+
+**Multi-line arg (per Rule 13e — value follows its own rule at
+relative indent):**
+```scheme
+(:wat::core::Result/try
+  (:wat::core::match
+    scrutinee
+    -> :Result<:T,:E>
+    ((Ok v) (Ok (process v)))
+    ((Err e) (Err (wrap-err e)))))
+```
+
+The try's first line is always head-only; the arg's internal
+structure is the arg's form's concern.
+
+**Why two lines always:**
+- Try is control-flow (early-return propagation); deserves
+  visual weight
+- Consistent with the user's "always vertical for structurally
+  significant forms" preference (define, lambda, let*,
+  conditional family)
+- One canonical shape per AST — formatter normalizes
+  one-liner usages to two-line shape
+
+**Note on retired `:wat::core::try` (EQ3):** user is mid-
+refactor of the retirement. The shape rule applies wherever
+`:try` lands during the migration; wat-lint flags the
+deprecated head with a migration suggestion (separate
+linter concern).
+
+### Rule 19b ✅ — `:expect` family is always vertical (4 lines)
+
+User locked 2026-05-02. Covers `:wat::core::Result/expect` and
+`:wat::core::Option/expect`. **Different shape from `:try`** —
+expect carries an explicit return type annotation and a panic
+message; it's structurally closer to the conditional family
+(typed head, vertical args).
+
+**Substrate constraints (verified):**
+- Both forms take EXACTLY 4 args, surfaced to the user as:
+  `(:Type/expect -> :T <res-or-opt-expr> "panic message")`
+- The 4 args under the hood: `->` literal, the type, the
+  value being unwrapped, the panic message string
+
+**Shape:**
+- Keyword alone on line 1
+- `-> :ReturnType` on line 2 indented 2
+- The value being unwrapped on line 3 indented 2
+- The panic message string on line 4 indented 2
+- **Always four lines** — no fits-on-one-line exception
+
+**Canonical (the user's locked form):**
+```scheme
+(:wat::core::Result/expect
+  -> :SomeType
+  result-expr
+  "panic message string")
+
+(:wat::core::Option/expect
+  -> :SomeType
+  option-expr
+  "panic message string")
+```
+
+**Multi-line value or message (compose via Rule 13e
+principle):** if the value or message is itself a multi-line
+form, it follows its own rule at relative indent; the expect's
+shape is unchanged at the outer level.
+
+```scheme
+(:wat::core::Result/expect
+  -> :SomeType
+  (:wat::core::let*
+    (((intermediate :T)
+       (compute-thing x)))
+    (refine intermediate))
+  "panic if compute or refine fails")
+```
+
+**Why this shape:**
+- Same "always vertical" discipline as Rules 13, 14, 14b, 14c,
+  16, 19
+- Type annotation visually distinct on its own line (matches
+  conditional-family precedent in Rule 16)
+- Panic message visually distinct from the value being
+  expected — the message is the failure-mode declaration, the
+  value is the success path
+- Consistent line count makes diff churn predictable
+
+**Relationship to Rule 19:**
+- `:try` is propagation (early-return; type inferred); 2 lines
+- `:expect` is panic-on-failure (terminates; type explicit); 4 lines
+- Same Result/Option semantic family, different syntactic
+  shape; different rules
 
 ---
 
