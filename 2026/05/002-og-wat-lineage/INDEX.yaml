@@ -162,27 +162,30 @@ notes:
       volatile and this is a historical artifact behind the spec.
 
   - file: wat-to-english.md
-    captured: 2026-05-02
-    beat: 7 (the inverse direction — wat-english back to English)
+    captured: 2026-05-02; rewritten same-day after collapse
+    beat: 7 (the inverse direction — collapsed to one MCP call)
     summary: |
       User's premise: "i was equally convinced we can translate
       wat-english forms to english... i don't think i actually
-      wrote it... conceptually... thought." The render direction
-      is deterministic (AST has no ambiguity); the lift direction
-      is lossy (English has positional ambiguity). The conviction
-      held; the implementation didn't ship in OG wat. This file
-      makes both implementation paths concrete: (1) template-based
-      renderer (~500-800 LOC, deterministic, local) handling
-      speech-act mood, modality hedges, confidence buckets, tense
-      conjugation, evidentials, discourse markers, coordination,
-      causation, reference resolution, statement SVO realization;
-      (2) LLM-based renderer for prose-quality contexts. Production
-      ships both: default template, fall back to LLM when prose
-      quality matters. Closes a fifth shape on top of
-      protocol-as-checksum's four (Express / Reflect / Verify /
-      Recall / Render). Round-trip is honestly lossy: AST is
-      canonical; English is derived projection. Same property TCP
-      has — the wire format normalizes the input.
+      wrote it... conceptually... thought." First draft proposed
+      a layered renderer (template walker + Hologram fallback +
+      LLM-rich-render). User pointed at the realization I had
+      demoted to Layer 3: "the to-string is an llm call.. 'render
+      this edn-form as english'... they have the familiar engrams
+      already." File rewritten to reflect the collapse. The
+      renderer is one MCP call. The wat-english crate ships zero
+      rendering code. Frontier LLMs already have the engrams —
+      every common structured form and its English rendering
+      pattern is in their training data. Protocol shape count
+      corrected from five back to four (Express / Reflect /
+      Verify / Recall) — Render is a surface choice on Reflect,
+      not a fifth shape. The substrate's role in rendering =
+      nothing. Round-trip lossiness still applies (TCP property).
+      Lesson banked: when the LLM is already a system component,
+      collapse to it. Don't write the deterministic version "for
+      self-containment" if there's no real self-containment
+      requirement. Substrate's 058 discipline applies — ship
+      only what's earned by cited use.
 
   - file: language-form-gaps.md
     captured: 2026-05-02
@@ -263,10 +266,13 @@ artifact-layout:
   scaffold-status: |
     No code scaffolds. Historical preservation + analysis +
     follow-on shape + five deeper recognitions (grammar, protocol,
-    language coverage, render direction, cypher pre-history) +
-    one entry-point pickup guide. The wat-english arc is sized
-    but not opened; PICKUP-GUIDE.md is the on-ramp when the user
-    decides foundations are impeccable enough to start it.
+    language coverage, render-direction-collapsed-to-LLM-call,
+    cypher pre-history) + one entry-point pickup guide. The
+    wat-english arc is sized but not opened; PICKUP-GUIDE.md is
+    the on-ramp when the user decides foundations are impeccable
+    enough to start it. Render-direction collapse means ~16
+    slices for Tier 1+2 (down from ~18); render is no longer a
+    slice.
 
 # ─── State ───
 status: open  (historical-preservation status)

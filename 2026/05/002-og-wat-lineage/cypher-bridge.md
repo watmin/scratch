@@ -243,11 +243,13 @@ This context strengthens several other recognitions in this arc:
   query *was* the verification of "show me data shaped like X."
   The protocol architecture absorbs that role natively.
 
-- **`wat-to-english.md` — Render shape.** A wat-sift query
-  rendered to English should read like a Cypher MATCH clause:
-  *"Find all Person nodes named Alice who know a Person over
-  30."* The render direction is straightforward because the
-  pattern is just a Bundle.
+- **`wat-to-english.md` — Render via LLM call.** A wat-sift
+  query rendered to English should read like a Cypher MATCH
+  clause: *"Find all Person nodes named Alice who know a Person
+  over 30."* Per the 2026-05-02 collapse, this rendering is an
+  MCP call to the LLM ("render this EDN as English") — the LLM
+  already has the engrams for structured-form-to-English
+  rendering. No template walker; no per-form rendering rules.
 
 - **`language-form-gaps.md` — Reference shape.** The reference
   / anaphora gap (Tier 1) IS solved by Hologram/find — which
@@ -272,8 +274,8 @@ This context strengthens several other recognitions in this arc:
     naming and initial shape (gaze-named)
   - `language-form-gaps.md` — Tier 1 #7 (Reference / anaphora)
     depends on this surface
-  - `wat-to-english.md` — render direction works on Sift's
-    output
+  - `wat-to-english.md` — render direction is an LLM call;
+    Sift's output is rendered by the same MCP-mediated path
   - `english-surface-arc.md` — wat-english depends on Sift
 - **Cross-history:** The user lived with Cypher's limitations
   for years; the substrate that escaped them is what this

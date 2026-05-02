@@ -91,8 +91,13 @@ When you open this arc to start wat-english, read in this order:
    reference. Three concrete lowering shapes are at the bottom.
 5. **`cypher-bridge.md`** — *the HISTORICAL FRAME*. wat-english's
    reference / anaphora forms inherit from this thread.
-6. **`wat-to-english.md`** — *the RENDER DIRECTION*. The
-   render slice (last in the slice plan) needs this.
+6. **`wat-to-english.md`** — *the RENDER DIRECTION*. **Updated
+   2026-05-02 after the LLM-call collapse:** rendering is an
+   MCP call to the LLM ("render this EDN as English"); the
+   wat-english crate ships zero rendering code. The file
+   captures the recognition + the four-shape protocol
+   correction (Render is a surface on Reflect, not a fifth
+   shape).
 7. **`english-surface-arc.md`** — *the ORIGINAL 5-SLICE PLAN*
    for OG wat's surface. Slices 1-5 of the consolidated plan
    come from here.
@@ -158,8 +163,10 @@ Subtract/Reject for negation.
 
 This consolidates the 5 slices in `english-surface-arc.md`
 (OG wat surface) + the 16 slices implied by `language-form-gaps.md`
-(Tier 1+2) + the 1 render slice in `wat-to-english.md`. Total
-~17-22 slices depending on render scope.
+(Tier 1+2). Total ~16 slices core; up to ~20 with optional
+Tier 3 polish. **Render is no longer a slice** — per the
+2026-05-02 update to `wat-to-english.md`, rendering is an MCP
+call to the LLM, not a feature the crate ships.
 
 ### Phase 1 — Foundations (slices 1-3)
 
@@ -264,28 +271,28 @@ constructions.
 level moves; substrate's role is removing/updating entries in
 the conversation Hologram.
 
-### Phase 5 — Render direction (slices 17-18)
+### Phase 5 — Rendering ~~direction (slices 17-18)~~ collapses
 
-**Slice 17 — Template-based renderer.** `:wat::english::render`
-function that walks any wat-english HolonAST and emits English
-prose by template. ~500-800 LOC for Tier 1+2 form coverage.
-Runs locally, deterministic, no model in the loop. Per
-`wat-to-english.md`.
+**No render slices.** Per `wat-to-english.md`'s 2026-05-02
+update, rendering is an MCP call to the LLM ("render this EDN
+as English"). The wat-english crate ships zero rendering code.
 
-**Slice 18 — LLM-based renderer.** `:wat::english::render-rich`
-wrapper that calls out to an LLM via MCP for prose-quality
-output. Cost: a model call per render. Use for high-stakes
-contexts.
+What may ship as part of the wat-mcp integration slice (not
+this crate's plan): a thin convenience like
+`(:wat::english::render-via-mcp ast-as-edn)` that bundles the
+standard prompt and routes through the configured MCP endpoint.
+That's a prompt-management helper, not a renderer; it lives
+with wat-mcp.
 
-### Optional later phases (slices 19+)
+### Optional later phases (slices 17+)
 
 **Tier 3 polish** as needed:
-- Slice 19 — plurality flavors (distributive / collective /
+- Slice 17 — plurality flavors (distributive / collective /
   generic distinctions)
-- Slice 20 — definiteness gradient (`the` / `a` / `any` /
+- Slice 18 — definiteness gradient (`the` / `a` / `any` /
   `some` / `this`)
-- Slice 21 — mass vs count noun distinction
-- Slice 22 — performatives, defeasible generics, cleft, etc.
+- Slice 19 — mass vs count noun distinction
+- Slice 20 — performatives, defeasible generics, cleft, etc.
 
 Don't pre-build Tier 3. Add as real consumers demand specific
 distinctions.
@@ -335,16 +342,20 @@ A pre-slice session that the actual implementation depends on:
 - A future-Claude (or future-you) can ramp from this guide to
   slice 1 in under 3 hours.
 - Each slice ships independently; no slice blocks the next
-  except Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5
-  ordering at the phase level.
+  except Phase 1 → Phase 2 → Phase 3 → Phase 4 ordering at the
+  phase level. (Phase 5 collapsed to nothing per the
+  render-is-an-LLM-call recognition; optional Tier 3 polish is
+  independent.)
 - The substrate doesn't change for any slice. If a slice
   proposes substrate work, it's a sign the macro design is
   wrong; revise the macro before touching wat-rs.
-- The wat-english crate is small (~2000-4000 LOC of wat across
-  all slices) because it's mostly macros over a rich substrate.
+- The wat-english crate is small (~1500-3000 LOC of wat across
+  all slices) because it's mostly macros over a rich substrate
+  and ships zero rendering code.
 - A real consumer (BOOK chapter, vocab module, MCP dialogue
-  flow) is using wat-english by the end of Phase 1. Phases 2-5
-  build on demonstrated value.
+  flow) is using wat-english by the end of Phase 1. Phases 2-4
+  build on demonstrated value. Tier 3 polish ships only when a
+  consumer demands a specific distinction.
 
 ## Closing the loop
 
@@ -374,9 +385,9 @@ This guide is the discipline that ensures that.
 - **Reading order locked:** PICKUP-GUIDE → README → recognitions
   → designs → historical → slice plans → external (058,
   CHEATSHEET, CONVENTIONS).
-- **Slice plan consolidated:** 5 from english-surface-arc + 13
-  new from language-form-gaps + 2 from wat-to-english + 4
-  optional Tier 3 = 24 slices total in the longest version,
-  18 for Tier 1+2 + render.
+- **Slice plan consolidated:** 5 from english-surface-arc + 11
+  new from language-form-gaps + 4 optional Tier 3 = ~20 slices
+  total in the longest version, 16 for Tier 1+2. **Render is
+  not a slice** per the 2026-05-02 LLM-call collapse.
 - **Cross-references:** every other file in this arc, plus
   proposal 058, plus the memory-as-hologram arc's `sift.md`.

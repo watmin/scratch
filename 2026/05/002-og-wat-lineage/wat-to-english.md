@@ -10,36 +10,81 @@ The user, 2026-05-02:
 >
 > "i don't think i actually wrote it... conceptually... thought..."
 
-The conviction held; the implementation didn't ship. The
-conceptual premise: wat-english forms render back to natural
-English mechanically, so humans can read what was said without
-learning the form.
+Then, after I drafted a layered template-based renderer that
+demoted the actual answer to "Layer 3 / fallback":
 
-This file captures why that conviction was correct, how the
-inverse direction maps onto the protocol, and the two
-implementation paths available now.
+> "you had the realization mid stream.... the to-string is an
+> llm call.. 'render this edn-form as english'... they have the
+> familiar engrams already.."
+
+The user was right. The renderer is one MCP call. Everything
+else was over-engineering. This file captures that recognition
+and the implications for the wat-english crate.
 
 ---
 
-## The direction asymmetry
+## The realization
 
-The conversation has two directions:
+**The to-string is an LLM call.** "Render this EDN as English."
+
+Frontier LLMs already have the engrams. Every common structured
+form (JSON, YAML, EDN, XML, S-expressions, RDF, schemas, ASTs)
+and its English rendering pattern is in their training data.
+Asking the LLM to render wat-english as English is asking it
+to do something it does effortlessly. The "engrams" — internal
+patterns that map structure to prose — are already there. We
+don't need to build them.
+
+That collapses the entire renderer design into one MCP call.
+
+## What collapses
+
+- **No template walker.** Not needed.
+- **No `:render-template-axis` on Bundles.** Was solving a problem
+  that doesn't exist when rendering isn't template-based.
+- **No render-Engram library / Hologram of templates.** Not needed.
+- **No `:wat::english::render` function in the wat-english crate.**
+  The crate ships zero rendering machinery.
+- **No tense/aspect conjugation tables.** The LLM handles it.
+- **No determiner-selection rules.** The LLM handles it.
+- **No pronoun-resolution heuristics.** The LLM handles it.
+- **No per-language template sets** (for non-English rendering).
+  The LLM handles it.
+
+## What's left
+
+```
+prompt: "Render this wat-english AST as natural English prose.
+        Keep the meaning exact; do not add information."
+input:  <wat-english-AST as EDN>
+output: <English prose>
+```
+
+That's the entire design. Routed through MCP per the
+protocol-as-checksum architecture; the LLM is already in the
+loop, so this isn't introducing a new component.
+
+## The direction asymmetry — still real, but for a different reason
+
+The two-direction framing the user had originally still holds:
 
 - **Lift** — English → wat-english. *Lossy.* English is
-  positionally ambiguous; the lift has to make judgment calls
-  (what's the subject, what's a clause boundary, what counts as
-  one statement). This is `protocol-as-checksum.md`'s "Hard
-  problem 1."
+  positionally ambiguous; the lift has to make judgment calls.
+  This is `protocol-as-checksum.md`'s "Hard problem 1." Even
+  though the LLM does this too (asked to lift, it produces a
+  candidate wat-english AST), the lift requires user judgment
+  to commit — the user has to verify the LLM's disambiguation
+  matches their intent.
 
-- **Render** — wat-english → English. *Deterministic.* The
-  AST is unambiguous; every Bind names its role; every axis
-  declares its kind. The renderer walks the form and emits
-  English by template. No judgment calls; no information loss
-  in the substrate-to-prose direction.
+- **Render** — wat-english → English. *Easy.* The AST is
+  unambiguous; the LLM has the engrams; the projection is
+  trivial. Ask the LLM to render, get prose back. No user
+  judgment needed because the canonical form is the AST and
+  the prose is the derived projection.
 
-The user's two-direction conviction was structurally correct.
-The direction they thought was easier IS easier. Building the
-lift is research; building the render is engineering.
+The asymmetry isn't "deterministic-vs-research" anymore; it's
+"requires-judgment vs doesn't." The LLM handles both directions
+mechanically, but only the lift requires human ratification.
 
 ## Why render matters
 
@@ -47,139 +92,27 @@ Three audiences need to read wat-english that aren't going to
 learn the form:
 
 1. **Humans without wat priors.** Stakeholders, future
-   collaborators, the DEFCON board, anyone reading the artifacts
-   later. They should see "The dog chases the toy at t-0,"
-   not `(:Statement (:Subject "dog") (:Verb "chases") (:Object "toy") :time (:Time "t-0"))`.
+   collaborators, the DEFCON board, anyone reading the
+   artifacts later. They should see "The dog chases the toy at
+   t-0," not the EDN form.
 
 2. **Other LLMs that don't speak wat.** A weaker model in the
-   loop, or a model fine-tuned on a different protocol, can
-   consume rendered English even if it can't emit valid
-   wat-english itself. Asymmetric partnership becomes possible.
+   loop, a model fine-tuned on a different protocol — they can
+   consume rendered English even if they can't emit valid
+   wat-english. Asymmetric partnership becomes possible.
 
 3. **Future-self.** When you re-read your own arcs in 6 months
    without wat in working memory, the rendered prose is the
    skim layer. The wat-english AST stays the durable record;
    the rendered English is the human-readable index.
 
-## Two implementation paths
+## Round-trip honesty — still applies
 
-Both are tractable today. Ship both.
+The collapse to "LLM call" doesn't change the round-trip
+property. English → wat-english → English produces *different*
+English than the original because the lift made disambiguating
+choices.
 
-### Path 1 — Template-based renderer (mechanical)
-
-Walk the wat-english AST; for each form, emit the English
-realization per template. Deterministic, runs locally, no model
-in the loop.
-
-The structural work:
-
-- **Speech act** picks the verb mood and word order:
-  - `:assert` → declarative ("X happens")
-  - `:question` → interrogative ("Does X happen?", "Who does X?")
-  - `:request` → imperative ("Please do X")
-  - `:promise` → first-person future ("I will do X")
-- **Modality** prepends/inserts hedges:
-  - `:must` → "X must happen"
-  - `:might` → "X might happen"
-  - `:probably` → "X probably happens"
-  - `:certainly` → "X certainly happens"
-- **Confidence** (Thermometer scalar) maps to lexical hedges
-  via threshold buckets:
-  - `[0.0, 0.3]` → "barely" / "unlikely"
-  - `[0.3, 0.6]` → "possibly" / "maybe"
-  - `[0.6, 0.85]` → "probably" / "likely"
-  - `[0.85, 1.0]` → "almost certainly" / "very likely"
-- **Tense / aspect** drives verb conjugation. Small finite
-  table: tense × aspect × person × number × verb-class →
-  conjugated form. ~200 entries cover English's mainstream.
-- **Evidentials** suffix the rendered statement:
-  - `:direct` → "(I saw)"
-  - `:reported` → "(I heard)"
-  - `:inferred` → "(inferring)"
-  - `:source X` → "(per X)"
-- **Discourse markers** prepend:
-  - `:first` → "First, X"
-  - `:then` → "Then, X"
-  - `:by-the-way` → "By the way, X"
-  - `:on-the-other-hand` → "On the other hand, X"
-- **Coordination operators** join sub-statements:
-  - `:And` → "X and Y"
-  - `:But` → "X, but Y"
-  - `:Or :inclusive` → "X or Y (or both)"
-  - `:Or :exclusive` → "X or Y (but not both)"
-- **Causation operators** insert subordinators:
-  - `:Because` → "X because Y"
-  - `:Provided` → "X if Y"
-  - `:Despite` → "X despite Y"
-  - `:Unless` → "X unless Y"
-- **Reference / anaphora** resolves via the conversation
-  Hologram and substitutes pronouns or definite NPs:
-  - `(:Ref :prev)` → "the previous claim" / "this"
-  - `(:Ref :pronoun :he)` → "he" (with discourse-state
-    resolution to the most-recently-mentioned masculine
-    referent)
-- **Statement** body emits the SVO shape:
-  - `(:Statement (:Subject S) (:Verb V) (:Object O) :adverb A :time T)`
-  - → "[determiner] S V [determiner] O [adverbially] [at T]"
-
-The renderer is recursive: nested forms render bottom-up; outer
-forms wrap the inner rendering.
-
-Size estimate: ~500-800 lines of Rust (or ~200-300 lines of
-wat) for the core renderer covering Tier 1 + Tier 2 forms.
-English realization tables are larger (verb conjugations,
-article rules) but bounded — there are finite English mainstream
-patterns and the renderer can punt to "raw form name" for
-anything outside the table.
-
-Ships as `:wat::english::render` — takes a wat-english HolonAST,
-returns a String.
-
-### Path 2 — LLM-based renderer (contextual)
-
-Just call eval on the AST and ask the LLM to render it as
-natural English. Pattern:
-
-```
-prompt: "Render this wat-english AST as natural English prose.
-Keep the meaning exact; do not add information."
-input:  <wat-english-AST as EDN>
-output: <English prose>
-```
-
-Frontier LLMs do this trivially. Non-deterministic (different
-model invocations may phrase differently), requires a model
-call, but produces richer prose than templates can — pronoun
-choices feel natural, register matches the surrounding
-discourse, edge cases that templates would punt on get handled
-gracefully.
-
-Use cases:
-- High-stakes communication (e.g., DEFCON talk slides) where
-  prose quality matters
-- Anywhere the wat-english AST will be quoted in a writeup
-- Translation to non-English languages (templates would need
-  per-language tables; LLMs handle this naturally)
-
-Cost: a model call per render. For batch renders or low-stakes
-output, the template renderer is cheaper.
-
-### Both, in production
-
-Default to template for the common path (logs, debug output,
-quick reads). Fall back to LLM for prose-quality contexts. The
-substrate ships `:wat::english::render` (template) and a wrapper
-`:wat::english::render-rich` that calls out to MCP-mediated LLM
-rendering when configured.
-
-## Round-trip honesty
-
-The render direction is deterministic, but **round-trip is
-not lossless**:
-
-- English → wat-english → English produces *different* English
-  than the original input, because the lift made disambiguating
-  choices.
 - The wat-english AST is the canonical form; both Englishes are
   views of it.
 - This is fine if the user understands the AST is the source of
@@ -187,14 +120,14 @@ not lossless**:
 
 Example:
 - Input: "The dog might be barking."
-- Lift: `(:Probably 0.5 (:Statement dog (:ProgressiveAspect bark)))`
-- Render: "The dog is probably barking."
+- Lift (LLM): `(:Probably 0.5 (:Statement dog (:ProgressiveAspect bark)))`
+- Render (LLM): "The dog is probably barking."
 
 Same proposition; different surface. Both are correct
-realizations of the same AST. The information that was lost
-("might" vs "probably") was the lift's choice — it pinned a
-modal slot to a confidence value. If precision matters, the
-user reviews the lifted AST before committing.
+realizations of the same AST. Information that "was lost"
+("might" vs "probably") was the lift's disambiguation. If
+precision matters, the user reviews the lifted AST before
+committing.
 
 This is the same property TCP has: the wire format normalizes
 the input; you don't get back the exact bytes you sent, you get
@@ -202,65 +135,127 @@ the canonical representation. For a thinking-substrate, that's
 the right behavior — the AST is the durable record; the prose
 is incidental.
 
-## How this completes the protocol
+## The protocol architecture simplifies — four shapes, not five
 
-`protocol-as-checksum.md` named four shapes the protocol needs:
-Express, Reflect, Verify, Recall. Render fills out a fifth that
-was implicit:
+An earlier draft of this file proposed a five-shape protocol
+(Express / Reflect / Verify / Recall / Render). With the
+collapse to "LLM call," **Render isn't a separate shape —
+it's a special case of Reflect.**
 
-- **Express** — user emits a thought (wat-english or English-
-  via-lift)
-- **Reflect** — LLM emits a thought (wat-english)
+The LLM reflects in two surfaces:
+- **Reflect-as-wat-english** — when speaking to the substrate
+  for verification + recall (its emissions get type-checked
+  and stored on the hologram)
+- **Reflect-as-English** — when speaking to humans (or to
+  systems that don't speak wat); the same LLM, the same
+  underlying intent, a different surface
+
+Same shape; the choice of surface is a parameter on the
+reflect-call. The protocol has four shapes:
+
+- **Express** — user emits a thought (wat-english, or English
+  via LLM-assisted lift)
+- **Reflect** — LLM emits a thought (wat-english to substrate;
+  English to humans; either surface, same shape)
 - **Verify** — substrate type-checks (`:wat::core::eval`)
 - **Recall** — Sift / Hologram retrieves prior thoughts
-- **Render** — wat-english surfaces back to English for
-  audiences that don't read the form
 
-The five shapes form a closed loop. Both parties can
-participate in any of them. The substrate handles Verify and
-Recall; the LLM handles Reflect (and optionally Render-rich);
-the user handles Express (with optional LLM assist for the
-lift); template renderer handles Render-default.
+The substrate's role in rendering = **nothing**. The substrate
+verifies and stores; the LLM reflects in either surface; the
+user expresses with optional LLM assist; recall is a substrate
+operation.
+
+This is cleaner than the five-shape framing. The boundaries
+between roles match the actual responsibility split.
+
+## Why I overcomplicated it (and what to remember)
+
+When I drafted the layered template-based renderer, I was
+hedging on three concerns:
+
+1. **Cost.** A model call per render. *Doesn't matter.*
+   Rendering is on-demand for human consumption, not on every
+   write. Pennies per session.
+
+2. **Determinism.** LLM output varies; templates produce stable
+   strings. *Doesn't matter.* Phrase variation is irrelevant
+   for the use case ("humans can read what was said"). If
+   stability is needed for diffs, cache by AST hash.
+
+3. **Self-containment.** The substrate "should" render without
+   external help. *Wrong frame.* The LLM is already in the
+   loop per the protocol architecture. Asking it to render is
+   no more "external" than asking it to lift. The LLM is a
+   first-class participant, not an outside dependency.
+
+**The lesson:** when the LLM is already a system component,
+collapse to it. Don't write the deterministic version "for
+self-containment" if there's no real self-containment
+requirement. The substrate's discipline (proposal 058) is to
+ship only what's earned by cited use; that discipline applies
+here too. A wat-english template renderer has no cited use
+because the LLM-call answer covers the use case at lower cost
+and zero implementation overhead.
+
+## What the wat-english crate actually ships
+
+After the collapse, the crate's render footprint is:
+
+- **Nothing.** The crate ships only the lift macros (Statement,
+  Modal, Negation, Question, etc.) that lower English-shaped
+  forms to Bundle/Bind. Rendering is delegated to whatever LLM
+  is in the MCP-mediated loop.
+- Optionally, a tiny convenience: `(:wat::english::render-via-mcp
+  ast-as-edn)` that bundles the standard prompt and routes
+  through the configured MCP endpoint. This is purely a
+  prompt-management helper, not a renderer.
+
+That convenience ships in the same slice as wat-mcp's
+substrate-tier integration, not as a separate render slice.
 
 ## Connection to OG wat's Ruby impl
 
 The `og-wat-impl.rb` preserved alongside this file is the
-original Ruby reference implementation of OG wat — 490 lines,
-implements tokenize / parse / evaluate for entity / list / add
-/ let / impl / lambda. It defines the Entity struct, the trait
-membership tables (Relatable / RelatableVerb / Adverbial /
-Timeable / StringValued / Numeric / Assertable / Listable /
-Mappable / Describable), and the sugar-type auto-wrapping
-(Subject / Object → Noun + role attr).
+original Ruby reference implementation of OG wat — 490 lines
+of parser + evaluator. It does NOT contain a render / to-string
+/ describe function. The user's recollection was correct —
+the renderer was conceptual, never coded.
 
-What it does NOT contain: a render / to-string / describe
-function. The user's recollection is correct — the renderer
-was conceptual, never coded. The Ruby implements the parser
-and evaluator; the inverse direction was on the roadmap.
+What the user couldn't have built 14 months ago: an MCP-mediated
+LLM call as the renderer. The substrate (wat-rs) didn't exist;
+the LLMs (frontier-class with reliable structured rendering)
+weren't ready; the wire protocol (MCP) wasn't standardized.
+All three exist now. The "to-string they couldn't build" turns
+out to not need to be built — the LLM does it.
 
-This file picks up that thread and makes the inverse direction
-concrete enough to ship today.
+This is the same shape as the protocol-as-checksum recognition:
+*you were 14 months early on tooling.* Now the tooling exists;
+the work that seemed substantial collapses to a config item.
 
 ## Status
 
-- **Captured:** 2026-05-02 in response to user's recognition
-  that wat-english → English was a conviction without
-  implementation.
-- **Direction asymmetry named:** lift (English → wat) is
-  research; render (wat → English) is engineering.
-- **Two implementation paths sized:** template (deterministic,
-  local, ~500-800 LOC) and LLM (rich, model-call cost).
-  Production ships both.
-- **Five-shape protocol completed:** Express / Reflect /
-  Verify / Recall / Render. The fifth shape closes the loop
-  for non-wat-fluent audiences.
+- **Captured:** 2026-05-02. The collapse recognition arrived
+  mid-conversation when the user pointed at it; the file was
+  rewritten to reflect it.
+- **The renderer is an LLM call.** "Render this EDN as English."
+  Frontier LLMs have the engrams already.
+- **Direction asymmetry preserved:** lift requires user
+  judgment (disambiguation); render is mechanical (the LLM
+  does it both directions, but only lift needs ratification).
+- **Protocol shapes corrected to four:** Express / Reflect /
+  Verify / Recall. Render is a surface choice on Reflect, not
+  a fifth shape.
+- **The wat-english crate ships zero rendering code.** Optional
+  thin convenience wrapper around the MCP call.
 - **Cross-references:**
   - `og-wat-impl.rb` — the historical Ruby reference (parser +
-    evaluator, no renderer)
-  - `protocol-as-checksum.md` — the four-shape protocol; this
-    file adds the fifth
-  - `language-form-gaps.md` — the gaps the renderer would need
-    templates for (Tier 1 + Tier 2 macros define the renderer's
-    scope)
-  - `english-surface-arc.md` — the consumer crate where
-    `:wat::english::render` lands as a slice
+    evaluator, no renderer; the renderer is unnecessary now)
+  - `protocol-as-checksum.md` — the four-shape protocol
+    (Express / Reflect / Verify / Recall); render is a Reflect
+    surface
+  - `language-form-gaps.md` — the gaps wat-english fills via
+    macros; rendering of those macros is the LLM's job
+  - `english-surface-arc.md` — the consumer crate; this file's
+    update means render slices are unnecessary
+  - `PICKUP-GUIDE.md` — slice plan; Phase 5 (render slices)
+    collapses per this update
