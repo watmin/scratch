@@ -761,52 +761,216 @@ shape is unchanged at the outer level.
 
 ---
 
-## §6 — Collections (Bundle / Vec / HashMap / HashSet) ❓ DRAFT
+## §6 — Collections (Bundle / vec / HashMap / HashSet) ✅
 
-### Rule 20 ❓ — Hung indent for long collection literals
+User locked 2026-05-02 with all four rules.
 
-If the collection fits under the line limit, keep on one line:
+### Rule 20 ✅ — `:vec` is always vertical
 
+User answered EQ1 → A (always vertical, no fits-on-one-line
+exception). Matches the convention already in `seed-fixture.wat:60-66`.
+
+**Shape:**
+- Head + element-type on line 1
+- Elements one per line indented 2
+- **Always vertical** when there are elements (no one-line collapse)
+- Empty collapses to head-only (EQ5 → A)
+
+**Empty:**
 ```scheme
-(:wat::core::vec :i64 1 2 3 4 5)
+(:wat::core::vec :T)
 ```
 
-Otherwise, head + element-type on first line; elements indented 2:
+**Single element (still vertical):**
+```scheme
+(:wat::core::vec :T
+  only-elem)
+```
 
+**Multi-element (the typical case, matches existing real-world
+seed-fixture.wat):**
+```scheme
+(:wat::core::vec :wat::telemetry::Event
+  (:demo::seed::log-event 1000 "alpha")
+  (:demo::seed::log-event 2000 "beta")
+  (:demo::seed::log-event 3000 "gamma")
+  (:demo::seed::log-event 4000 "delta")
+  (:demo::seed::log-event 5000 "epsilon"))
+```
+
+**Multi-line element (composes via Rule 13e — element follows
+its own rule at relative indent):**
 ```scheme
 (:wat::core::vec :wat::holon::HolonAST
-  (:wat::holon::Bind :role-subject (:wat::holon::Atom "dog"))
-  (:wat::holon::Bind :role-verb    (:wat::holon::Atom "chases"))
-  (:wat::holon::Bind :role-object  (:wat::holon::Atom "toy")))
+  (:wat::holon::Bind
+    :role-subject
+    (:wat::holon::Atom "dog"))
+  (:wat::holon::Bind
+    :role-verb
+    (:wat::holon::Atom "chases")))
 ```
 
-### Rule 21 ❓ — Bundle is a vec of HolonASTs
+### Rule 21 ✅ — `:Bundle` is structurally identical to `:try`
 
+User answered EQ4 → same as `:try`. `:wat::holon::Bundle` takes
+exactly one arg (a vec of HolonAST); shape rule is identical to
+Rule 19's `:try` family.
+
+**Shape:**
+- Keyword alone on line 1
+- Single arg on line 2 indented 2
+- **Always two lines** — even when the arg is short
+- Inner vec follows its own rule (Rule 20) at relative indent
+
+**Canonical (matches real-world `Ngram.wat`):**
 ```scheme
 (:wat::holon::Bundle
   (:wat::core::vec :wat::holon::HolonAST
-    (:wat::holon::Bind ...)
-    (:wat::holon::Bind ...)))
+    (:wat::holon::Bind :role-subject (:wat::holon::Atom "dog"))
+    (:wat::holon::Bind :role-verb    (:wat::holon::Atom "chases"))
+    (:wat::holon::Bind :role-object  (:wat::holon::Atom "toy"))))
 ```
 
-The `Bundle` head and the inner `vec` head each on their own
-line; the vec elements indented 2 from `vec`'s open paren.
-
-### Rule 22 ❓ — HashMap key-value alignment
-
-When a HashMap fits on one line, keep it. Otherwise:
-
+**Single-element Bundle (still 2 lines outer + Rule 20 vec
+inner):**
 ```scheme
-(:wat::core::HashMap :wat::core::Symbol :i64
-  :foo  1
-  :bar  42
-  :baz  100)
+(:wat::holon::Bundle
+  (:wat::core::vec :wat::holon::HolonAST
+    (:wat::holon::Bind :role-subject (:wat::holon::Atom "dog"))))
 ```
 
-Keys aligned; values aligned in a column. Two-space minimum gap
-between key and value. (If alignment looks ugly because of one
-extreme-length key, fall back to one-pair-per-line without
-column alignment.)
+**Bundle wrapping non-vec arg (e.g., a `:wat::core::map` call):**
+```scheme
+(:wat::holon::Bundle
+  (:wat::core::map
+    (:wat::std::list::window xs n)
+    (:wat::core::lambda
+      ((window :wat::holon::Holons)
+       -> :wat::holon::HolonAST)
+      (:wat::holon::Sequential window))))
+```
+
+The inner form follows whatever rule applies to it; Bundle's
+rule only constrains the outer two-line shape.
+
+### Rule 22 ✅ — `:HashMap` always vertical; k-v pairs on same line; no alignment
+
+User answers locked:
+- EQ1 → A (always vertical, even when fits on one line)
+- EQ2 → A (k-v pairs on same line, not each on own line)
+- EQ3 → no alignment, single space between key and value
+- EQ5 → A (empty collapses to head-only)
+
+**Shape:**
+- Head + value-type on line 1
+- Each key-value pair on its own line, indented 2
+- Single space between key and value (no column alignment)
+- **Always vertical** when there are pairs
+- Empty collapses to head-only
+
+**Empty:**
+```scheme
+(:wat::core::HashMap :V)
+```
+
+**Single pair (still vertical):**
+```scheme
+(:wat::core::HashMap :V
+  key value)
+```
+
+**Multi-pair (matches real-world `WorkUnit.wat:236-238`):**
+```scheme
+(:wat::core::HashMap :wat::telemetry::Tag
+  asset-key asset-val
+  stage-key stage-val)
+```
+
+**No column alignment — single space, even with varying-length
+keys** (per EQ3):
+```scheme
+(:wat::core::HashMap :V
+  :foo 1
+  :bar-name 42
+  :baz 100)
+```
+
+NOT:
+```scheme
+;; rejected — column alignment causes diff churn when a key
+;; length changes
+(:wat::core::HashMap :V
+  :foo       1
+  :bar-name  42
+  :baz       100)
+```
+
+**Multi-line value (composes via Rule 13e — value wraps below
+the key, indented 2 from the pair's start column):**
+```scheme
+(:wat::core::HashMap :V
+  asset-key
+    (:wat::holon::Atom :BTC)
+  stage-key
+    (:wat::holon::Atom :market-eval))
+```
+
+When a value is too long to fit on the same line as its key,
+the key sits alone on its line and the value wraps to the next
+line indented 2 from the pair's column. (This matches Rule 13b
+Option B from `:let*`'s wrap.)
+
+### Rule 22b ✅ — `:HashSet` mirrors `:vec`
+
+`:wat::core::HashSet` is structurally a Bundle alias keyed on
+membership; for formatting it follows the same shape as `:vec`
+(head + element-type + elements one per line). Same edge cases
+apply.
+
+**Empty:**
+```scheme
+(:wat::core::HashSet :T)
+```
+
+**Single element:**
+```scheme
+(:wat::core::HashSet :T
+  only-elem)
+```
+
+**Multi-element:**
+```scheme
+(:wat::core::HashSet :T
+  elem-1
+  elem-2
+  elem-3)
+```
+
+### Why this shape (collections as a family)
+
+- **Always vertical** is consistent with every other locked rule
+  (13, 14, 14b, 14c, 16, 19, 19b)
+- One canonical shape per AST — formatter normalizes one-liner
+  usages to the vertical form
+- Diff-friendly: adding/removing an element or pair is a
+  one-line diff
+- Bundle/vec/HashMap/HashSet share one principle, with HashMap's
+  k-v-on-same-line as the one structural variant
+- Empty collections collapse to head-only — matches the
+  general "args region empty → no inflation" principle from
+  Rule 14's 0-arg amendment
+
+### Composition notes
+
+- Collections nested inside `:let*` bindings, function-call
+  arguments, or `:define`/`:lambda` bodies follow their own
+  rule at relative indent (per Rule 13e principle)
+- The bindings vector in `:let*` is NOT a `:vec`; it's a
+  bindings-list literal, which has its own Rule 13 shape
+  (different from Rule 20)
+- Bundle/vec composition is handled by each rule independently:
+  Bundle puts its arg on the next line; the inner vec follows
+  Rule 20 from there
 
 ---
 
