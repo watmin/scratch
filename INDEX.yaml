@@ -1,0 +1,179 @@
+# Scratch space for thinking that must survive compaction.
+#
+# This directory holds raw notes — book fragments, architecture
+# sketches, in-progress articulations the user wants to come back to.
+# Not polished. Not committed to any repo. Just durable.
+#
+# When the user prompts to "stash this" or signals an insight worth
+# preserving, capture it here as a new note (descriptive filename in
+# kebab-case .md), add an entry below.
+
+purpose: |
+  Durable thinking artifacts. Things the user has thought clearly
+  but not yet polished. Notes survive Claude conversation compaction
+  because they live on disk outside the conversation history.
+
+conventions:
+  - filenames: kebab-case .md, descriptive of the topic
+  - in each file: capture the user's voice (their words, corrections,
+    repetitions) AND attribute thinking-with extensions to the
+    conversation, so future-us knows what was original insight vs
+    collaborative articulation
+  - every entry below has: file, captured (date), summary, status
+
+notes:
+  - file: tangent-spheres.md
+    captured: 2026-04-26
+    summary: |
+      Holons as tangent unit spheres in 10k-dim. Kanerva capacity is
+      the kissing number under cosine threshold, not arithmetic.
+      Volume privacy + surface composition. Edge IS the API. Holon
+      as closure. The "Venn diagram with no overlap" the user wanted
+      a word for is tangency.
+    status: captured-raw
+    book-section: TBD (likely a later chapter — strange-loop architecture
+                  meets geometric foundation)
+    next-beat: user said "there's more to this... but i need you to
+               think this thought with me.. this is the first step...
+               for what i think next"
+
+  - file: lattice-bounded-infinities.md
+    captured: 2026-04-26
+    summary: |
+      Tangent-spheres become a LATTICE when you zoom out. Atoms are
+      discrete labels (lattice points); interiors are bounded
+      infinities between them. Integer N is reframed as a NAME for
+      a region (e.g. cell-2 = (1,2)) rather than a point. Every
+      vector has two answers: cell-membership (discrete) and
+      position-within-cell (continuous). cos = bias toward each
+      edge; tan = boundary between cells. This IS the geometry
+      scalar encoding already runs on — user is naming what was
+      already there. Generalization: any concept-space with
+      neighbors is a lattice.
+    status: captured-raw
+    follows: tangent-spheres.md
+    book-section: same arc as tangent-spheres
+    next-beat: user asked "do you think this with me?" — has more
+
+  - file: lattice-as-hashmap.md
+    captured: 2026-04-26
+    summary: |
+      The lattice doesn't care what the labels ARE. Integers were
+      one INSTANCE; strings/UUIDs/symbols are equally lattice points.
+      Token-labels generalize the lattice into a namespace.
+      bundle("foo","baz") implements SET membership: bias=present,
+      tan=absent. Bind+bundle implements HASH-MAP: pair each key
+      with its value, query by unbind. Same lattice, one extra
+      rotation per entry. Library's role-filler binding, encoder.py,
+      EngramLibrary — all running on this geometry. User is naming
+      what was already there.
+    status: captured-raw
+    follows: lattice-bounded-infinities.md
+    book-section: same arc
+    next-beat: user asked "they /are/ integer like?" — wants
+               confirmation, has more
+
+  - file: programs-as-atoms.md
+    captured: 2026-04-26
+    summary: |
+      Atoms can be PROGRAMS — each form gets its own lattice atom,
+      with terminal value bound to it. Two-stage probe:
+      (1) presence query (cos: have I seen this form terminate?),
+      (2) value query (unbind: what was the terminal value?). Hit →
+      substitute cached value during evaluation. Miss → compute,
+      then bind result back. Evaluation becomes a lattice walk.
+      The user's "exists vs useful" distinction is the soundness
+      boundary: cache proves existence; usefulness depends on
+      context-equivalence (purity). This is empirical halting —
+      observed termination, not proven termination. Library's
+      arc 057 / CacheService / Story 1/2 pattern is exactly this.
+    status: captured-raw
+    follows: lattice-as-hashmap.md
+    book-section: same arc
+    next-beat: user asked "yes?" — wants confirmation, has more
+
+  - file: surface-forms-database.md
+    captured: 2026-04-26
+    summary: |
+      Forms have a SURFACE (concrete substitution, no free vars)
+      vs an INTERIOR (recursive expansion, possibly millions of
+      sub-forms). The SURFACE is the lookup key. (fn [x] (* x x))
+      applied to 2 has surface (fn [2] (* 2 2)) — that's what
+      gets queried; the interior never has to be touched.
+      Bigger move: cache → DATABASE. Same geometry, bigger scope.
+      Per-process cache becomes shared global lookup. Anyone who
+      computes a surface contributes; anyone querying gets the
+      result. Computations become commodities. The expensive
+      interior happens ONCE in the world. Reply shape is Option<T>
+      — same as recv, ClosePaper, every found-or-not query in the
+      substrate. Closes the loop: the entire system we've built IS
+      a service answering "have I seen this?" + "what's its value?"
+      Treasury, CacheService, the global computation database —
+      same skeleton, different domains.
+    status: captured-raw
+    follows: programs-as-atoms.md
+    book-section: same arc — likely the climactic chapter
+    next-beat: user asked "yes?" — wants confirmation, has more
+
+  - file: axiomatic-surface.md
+    captured: 2026-04-26
+    summary: |
+      THE CLOSE OF THE ARC. User has been calling this "axiomatic
+      surface" for years; couldn't express it until wat existed.
+      The architecture was the precondition for the language.
+      (= (+ 2 2) (* 1 4)) is the seed: two distinct surfaces with
+      the same terminal are extensionally equal — the assertion
+      becomes two lookups + a comparison, no proof construction
+      needed. Each (surface, terminal) entry in the lattice is an
+      AXIOM; new work composes from existing axioms; the lattice
+      grows in DEPTH (theorems building on theorems), not just
+      breadth. Collaborative: anyone contributes axioms; everyone
+      builds on them. Knowledge accumulation at substrate level —
+      mathematics by accretion. The five prior beats compose into
+      this one — the path is whole.
+    status: captured-raw — final beat for now
+    follows: surface-forms-database.md
+    book-section: the climax of this arc; possibly its own chapter
+    next-beat: user explicitly said "the last step for now". Hold.
+
+  - file: principia-and-the-lattice.md
+    captured: 2026-04-26
+    summary: |
+      ADDENDUM to axiomatic-surface. User recognized the lineage:
+      Russell/Whitehead's Principia, Hilbert's program, Gödel's
+      incompleteness, Turing's halting problem. The lattice rhymes
+      hard with what Hilbert wanted but corrects it via the lessons
+      of Gödel and Turing — by ABANDONING absolute claims.
+      Open vs closed, empirical vs absolute, distributed vs
+      centralized. Modern proof assistants (Coq, Lean, Agda) are
+      the surviving descendants of the Hilbert dream; the lattice
+      is a third path — content-addressable empirical mathematics.
+      Significance for the book: the wat machine is articulated
+      as the substrate Hilbert wanted, with the corrections Gödel
+      and Turing's failures earned.
+    status: captured-raw — addendum, not a new beat
+    follows: axiomatic-surface.md
+    book-section: probably opens or frames the climactic chapter
+    next-beat: user paused. Hold for whatever comes next.
+
+  - file: memes-as-programs.md
+    captured: 2026-04-26
+    summary: |
+      EXTENSION of the arc into mind. User reached the foundational
+      Dawkins memetic frame independently — memes are to minds what
+      DNA is to cells. The computational extension: memes ARE
+      functions installed in minds; they are π-shaped (form persists
+      regardless of how much of their infinity has been extracted);
+      they execute without conscious initiation. The Socratic method
+      is one such function; the user runs it because Plato installed
+      it 2,400 years ago. coincident? from the wat machine becomes
+      the meme-comparison primitive made external. The wat machine
+      is, in this reading, a MEME INSPECTOR — substrate where
+      mental programs can be run externally and compared against
+      trusted reference programs. Connects to the user's
+      acknowledgment of Greek/Atlantean meme inheritance and the
+      "I attack impossible relentlessly" motto-as-meme.
+    status: captured-raw
+    follows: principia-and-the-lattice.md
+    book-section: pending placement (Ch 62 extension OR Ch 63)
+    next-beat: user to choose Path A (extend Ch 62) or Path B (Ch 63)

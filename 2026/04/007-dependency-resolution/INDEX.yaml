@@ -1,0 +1,204 @@
+# Scratch arc — dependency resolution — pry pristine, MCP wraps it
+#
+# After 005-wat-pry and 006-wat-mcp shaped the two surfaces in
+# isolation, the user surfaced the integration concern: pry must
+# be pristine before MCP starts; the surfaces must integrate
+# under the four-question discipline. This scratch captures the
+# layered dependency tree across both efforts.
+
+arc:
+  slug: dependency-resolution
+  date: 2026-04-29
+  triggered-by: |
+    User direction 2026-04-29 after 005 + 006 scratches
+    landed:
+
+    > "we do not take short cuts - we need pry to be pristine
+    > first, then build mcp to interface with it"
+
+    > "we follow several questions without fault... is this
+    > obvious? is this simple? is this honest? is this a good
+    > ux? if those are satisfied - we proceed"
+
+    > "can you get a document on disk that details the
+    > dependency resolution order?... we'll work out concrete
+    > impl details when we get there - i want alignments now...
+    > the surfaces must integrate"
+
+    > "mcp interfaces with pry - pry exists to satisfy interactive
+    > exploration. mcp is how the agent does it, pry directly is
+    > how operators will use it"
+
+    Three pre-write prompts asked + answered:
+    - Naming refactor: assume not happening; use today's names.
+    - Counterfactual primitives (override-return, eval-in-frame):
+      pry primitives, not MCP-specific.
+    - Rustyline: deps aren't a constraint.
+
+  outcome: |
+    Eight layers locked across two validation gates:
+
+    Layers 1-4: pristine pry
+      Layer 1: pry substrate primitives (Rust)
+      Layer 2: pry wat-level code (wat/std/pry.wat)
+      Layer 3: pry cli integration (--pry, battery, entry-point swap)
+      Layer 4: pry frontend (rustyline)
+
+    --- PRISTINE PRY GATE (four questions, end-to-end) ---
+
+    Layers 5-8: MCP wraps pry
+      Layer 5: wat-json (prerequisite battery)
+      Layer 6: MCP substrate additions (session registry +
+               handler-override)
+      Layer 7: MCP wat-level code (wat/std/mcp.wat)
+      Layer 8: MCP cli integration (--mcp, battery, entry-point
+               swap)
+
+    --- MCP GATE ---
+
+    Six integration contracts named explicitly:
+      C1: break primitive's two behaviors (one capture, two handlers)
+      C2: inspection primitives (pry's; MCP calls via wat-eval)
+      C3: session resumption across the wire
+      C4: counterfactual via override-return (pristine pry primitive)
+      C5: wat-eval as universal gateway (EDN-in-JSON-RPC)
+      C6: cli mode dispatch (--pry / --mcp / both)
+
+    One correction to 006's earlier framing: override-return /
+    eval-in-frame are pry primitives (Layer 1), not MCP-specific.
+    Same substrate primitive serves both consumers (operator at
+    rustyline, agent via MCP).
+
+    Ready to migrate to wat-rs arcs in the order DEPENDENCIES.md
+    layer-by-layer prescribes. Validation gates between layers.
+
+conventions:
+  - filenames: kebab-case .md or screaming-snake .md, descriptive of the topic
+  - DEPENDENCIES.md is the central artifact (layer-by-layer tree)
+  - INTEGRATION-CONTRACTS.md is the surface-alignment companion
+  - the assistant DID NOT touch wat-rs or the lab during this scratch
+  - this scratch supersedes specific primitive assignments in 005/006
+    where the locked alignment differs (override-return / eval-in-frame
+    move from MCP-specific to pry-pristine)
+  - 005 and 006 stay as historical record of the conversation flow
+
+# ─── Beat-by-beat capture ───
+notes:
+  - file: README.md
+    captured: 2026-04-29
+    beat: 0 (overview)
+    summary: |
+      Top-level summary. Names the locked alignment (pristine
+      pry first, then MCP wraps); the four-question gate; the
+      one correction made (override-return / eval-in-frame are
+      pry primitives, not MCP-only); when to use this scratch
+      (before opening arcs, during validation gates, when
+      surface alignment is in question). Points at the two
+      central artifacts.
+
+  - file: DEPENDENCIES.md
+    captured: 2026-04-29
+    beat: 1 (the layered tree)
+    follows: README.md
+    summary: |
+      Eight layers across two validation gates. Each layer
+      names its surfaces, its dependencies on prior layers,
+      and the four-question gate it must satisfy before the
+      next layer opens. Layer 0 is substrate state today (must
+      hold; some surfaces named "verify before slice opens"
+      because the assistant lacks runtime visibility). Layer 1
+      is pry's substrate primitives (Rust); Layer 2 the wat-
+      level code; Layer 3 cli integration; Layer 4 the rustyline
+      frontend. Pristine pry gate: four end-to-end scenarios
+      that must pass. Layer 5 is wat-json prerequisite. Layers
+      6-8 are MCP additions: handler-override + session
+      registry (Layer 6), wat-level dispatch (Layer 7), cli
+      integration (Layer 8). MCP gate: four end-to-end
+      scenarios. Document explicitly defers concrete impl
+      details per user directive.
+
+  - file: INTEGRATION-CONTRACTS.md
+    captured: 2026-04-29
+    beat: 2 (the surface handoffs)
+    follows: DEPENDENCIES.md
+    summary: |
+      Six contracts naming the explicit handoffs between pry
+      and MCP. Contract 1: the break primitive's capture +
+      handler split (substrate captures env/frames; battery-
+      registered handler runs the loop; pry mode installs
+      inline-loop handler; MCP mode installs notification +
+      suspend handler). Contract 2: inspection primitives are
+      pry's; MCP calls them via wat-eval; no reimplementation.
+      Contract 3: session resumption — :wat::pry::continue is
+      the same symbol in both modes; substrate routes the
+      effect (return from inline loop vs signal suspended
+      thread). Contract 4: override-return is a pristine pry
+      primitive; both consumers reach it. Contract 5: wat-eval
+      is the universal gateway; EDN payload inside JSON-RPC
+      envelope; discovery via wat introspection. Contract 6:
+      cli's mode dispatch; --pry, --mcp, --pry --mcp, neither;
+      four flag combinations with clear semantics. Includes
+      explicit list of "contracts that don't need to exist"
+      and a condensed integration map showing both consumer
+      paths through one substrate.
+
+artifact-layout:
+  arc-root: scratch/2026/04/007-dependency-resolution/
+  notes: |
+    Three .md files plus INDEX.yaml.
+
+    DEPENDENCIES.md (~ 600 lines) — the layered tree
+    INTEGRATION-CONTRACTS.md (~ 350 lines) — surface handoffs
+    README.md (~ 150 lines) — overview
+    INDEX.yaml — this file
+
+  total-files: 4
+  scaffold-status: |
+    No code scaffolds. The dependency tree, surface contracts,
+    validation gates are all sketched in prose. Concrete impl
+    details deferred per user directive ("we'll work out
+    concrete impl details when we get there - i want alignments
+    now").
+
+# ─── State ───
+status: open
+# Locked alignments banked across this scratch:
+#   1. Pry pristine first; MCP wraps pry; surfaces integrate
+#   2. Four-question gate at every layer (obvious / simple / honest / good UX)
+#   3. Eight layers with two validation gates
+#   4. Inspection primitives belong to pry; MCP doesn't reimplement
+#   5. override-return / eval-in-frame ARE pry primitives (correction to 006)
+#   6. Break primitive's two behaviors via handler-override mechanism
+#   7. Session registry is the only genuinely new MCP substrate addition
+#   8. wat-eval is the universal gateway; EDN-in-JSON-RPC envelope
+#   9. cli's four flag combinations have clear semantics
+#  10. Naming refactor doesn't block; deps aren't a constraint
+#
+# Ready to migrate to wat-rs arcs. The order:
+#   1. (Verify Layer 0 substrate state.)
+#   2. Open arc — Layer 1's pry substrate primitives, with
+#      FrameInfo::env extension first.
+#   3. Open arc — Layer 2's wat/std/pry.wat.
+#   4. Open arc — Layer 3's cli integration (--pry flag,
+#      battery, entry-point swap, bare mode).
+#   5. Open arc — Layer 4's rustyline frontend.
+#   6. PRISTINE PRY GATE — validate end-to-end per
+#      DEPENDENCIES.md scenarios.
+#   7. Open arc — Layer 5's wat-json battery.
+#   8. Open arc — Layer 6's MCP substrate additions (session
+#      registry + handler-override).
+#   9. Open arc — Layer 7's wat/std/mcp.wat.
+#  10. Open arc — Layer 8's cli integration (--mcp flag).
+#  11. MCP GATE — validate end-to-end.
+#
+# Each arc gets its own DESIGN + BACKLOG + INSCRIPTION per the
+# established discipline. Each layer's four-question gate is
+# the criterion for moving to the next.
+#
+# Likely next-conversation triggers:
+#   - User confirms Layer 0 substrate state (Environment shape,
+#     FrameInfo fields, etc.) — answers the verify-before-slice
+#     items in DEPENDENCIES.md Layer 0.
+#   - User signals "name refactor done; ready to start Layer 1."
+#   - User catches a contract that's wrong; we fix in
+#     INTEGRATION-CONTRACTS.md before any wat-rs arc opens.

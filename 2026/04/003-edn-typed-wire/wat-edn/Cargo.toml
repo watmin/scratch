@@ -1,0 +1,23 @@
+# SCRATCH SKETCH — arc 003-edn-typed-wire.
+# Verify deps versions against wat-rs's actual Cargo.toml before
+# lifting into a real crate.
+
+[package]
+name = "wat_edn"
+version = "0.0.0-scratch"
+edition = "2021"
+description = "EDN reader/writer for wat — typed wire format, SymbolTable-derived dispatch"
+
+[dependencies]
+edn-format = "3.3"
+wat = { path = "../../../../../../wat-rs" }   # adjust when lifting
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.7", features = ["v4"] }
+thiserror = "1.0"
+
+[features]
+default = []
+
+[lib]
+name = "wat_edn"
+path = "src/lib.rs"

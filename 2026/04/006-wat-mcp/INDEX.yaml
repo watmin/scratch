@@ -1,0 +1,304 @@
+# Scratch arc — wat-mcp — wat programs as MCP servers
+#
+# Continuation of 005-wat-pry. After the pry shape locked, the user
+# saw the bigger move: with one envelope swap (EDN+newline →
+# JSON-RPC over stdio), wat programs become MCP servers with
+# binding.pry-shaped agent-driven debugging. The substrate's prior
+# arcs already did 95% of the work.
+
+arc:
+  slug: wat-mcp
+  date: 2026-04-29
+  triggered-by: |
+    Continuation of 005-wat-pry conversation. After the pry
+    primitives + slice plan locked, user said:
+
+    > "i just had a wild idea.... you talked about a :wat::pry::serve
+    > ... what if... we could have a program-as-an-mcp.... give the
+    > agent a way to run a program /and/ live debug it?..."
+
+    Initial sketch involved JSON Schema generation + per-function
+    MCP tool registration + JSON-to-wat type transcoding. User
+    collapsed all of it with one observation:
+
+    > "i think... the JSON rpc.. is just a thin wrapper... the input
+    > object would be something like '{\"msg\":\":some-edn-form\"}'"
+
+    JSON-RPC is just envelope; the payload is wat source as a
+    string. The substrate doesn't translate types. The agent talks
+    wat directly. **One MCP tool: `wat-eval`.** Discovery via
+    wat introspection (`(:wat::pry::ls)`, `(:wat::pry::show :sym)`).
+    Same hologram model — the agent is another caller through the
+    surface; freeze invariant gates what they can do.
+
+  outcome: |
+    Structural shape locked. Six load-bearing decisions:
+      1. JSON-RPC is envelope; EDN payload inside `msg` field.
+         No JSON Schema generation; no per-function tools.
+      2. ONE MCP tool — `wat-eval` (and `wat-eval-stream` for
+         break-mode). Discovery via wat itself.
+      3. Break-as-notification: when (:wat::pry::break) fires
+         under MCP, substrate sends JSON-RPC notification, leaves
+         original call suspended; agent inspects via more
+         wat-eval calls; (:wat::pry::continue) resumes.
+      4. wat-json battery is the one substrate prerequisite (Path
+         A — battery wraps serde_json over Path B — wat-level
+         parser).
+      5. Gating via --mcp flag, mirrors --pry mechanism. mcp
+         battery conditionally registered.
+      6. 006 depends on 005 slices 1+2; reuses substrate primitives
+         without reimplementation.
+
+    Substrate additions estimated: ~320 lines Rust (mostly the
+    session registry + override-return + eval-in-frame primitives)
+    + ~200-400 lines wat (the MCP loop in wat/std/mcp.wat) + a
+    wat-json battery as a sibling arc. ~7-9 days for slices 1+2
+    after 005 is shipped. Slice 3 (counterfactuals) +4-5 days.
+    Slice 4 (TCP attach) deferred behind production-demand and
+    security work.
+
+    Ready to migrate to a wat-rs arc when 005's prerequisites
+    + wat-json have shipped.
+
+conventions:
+  - filenames: kebab-case .md, descriptive of the topic
+  - capture user's exact words at decision points
+  - distinguish user-original insight from thinking-with extension
+  - the assistant DID NOT touch wat-rs or the lab during this scratch;
+    only the scratch dir itself
+  - sibling to 005-wat-pry; reference cross-cuts where relevant
+
+# ─── Beat-by-beat capture ───
+notes:
+  - file: README.md
+    captured: 2026-04-29
+    beat: 0 (overview)
+    summary: |
+      Structural sketch + sibling-materials table + the locked
+      decisions. Top-level entry point for future readers walking
+      back into this scratch. Names the dependency on 005;
+      points at the user's central recognition (JSON envelope,
+      EDN payload).
+
+  - file: the-collapse.md
+    captured: 2026-04-29
+    beat: 1 (THE PIVOT)
+    follows: README.md
+    summary: |
+      The user's central insight collapsed the design from
+      "translate everything via JSON Schema" to "JSON envelope,
+      EDN payload, agent talks wat directly." Eliminates JSON
+      Schema generation, per-function tool registration,
+      transcoding ceremony, type-boundary mismatch, two systems
+      of truth, translation latency. Preserves MCP envelope
+      conventions and the substrate's evaluation discipline.
+      The user's instinct in lineage: same shape across arcs
+      003 / 086 / 103 / 104 — collapse a translation layer into
+      the substrate's native form. The agent USES wat; the MCP
+      layer is dial-tone.
+
+  - file: one-tool-surface.md
+    captured: 2026-04-29
+    beat: 2 (the surface)
+    follows: the-collapse.md
+    summary: |
+      The MCP server publishes ONE tool: `wat-eval (msg :String)
+      -> :String`. Optional second `wat-eval-stream` for
+      break-mode interactions. Three reasons one tool is right:
+      (a) composition is what makes wat valuable — the agent
+      sends a let-bound multi-step computation as one form;
+      per-function tools force N sequential calls, (b) tool list
+      stays stable as SymbolTable grows — adding a battery
+      doesn't change the tool surface, (c) JSON Schema doesn't
+      fit wat's parametric / sum / recursive types cleanly.
+      Discovery: agent calls (:wat::pry::ls) and (:wat::pry::show
+      :sym) through wat-eval. The substrate's introspection IS
+      the API documentation. Five idioms; agent learns wat once;
+      every wat-mcp server is reachable through the same
+      discipline.
+
+  - file: break-as-notification.md
+    captured: 2026-04-29
+    beat: 3 (the killer use case)
+    follows: one-tool-surface.md
+    summary: |
+      The user's framed goal: "give the agent a way to run a
+      program /and/ live debug it". (:wat::pry::break) already
+      exists from 005 slice 2. MCP-mode wraps it: when the break
+      fires during a wat-eval-stream call, the substrate sends a
+      JSON-RPC notification (with session ID, file/line/col, env
+      keys), leaves the original call suspended. Agent makes
+      follow-up wat-eval calls referencing the session ID;
+      these route to the captured Environment. (:wat::pry::continue)
+      releases; original call returns. Special operations:
+      :override-return forces a function to return a specific
+      value (counterfactual debugging); :eval-in-frame reads
+      from any captured frame by index. The agent becomes the
+      pry frontend. Three rules; substrate handles the suspended-
+      call mechanics. Maybe ~320 lines Rust + ~150 lines wat
+      compared to ~5000 for a custom debugger client/server.
+
+  - file: json-prerequisite.md
+    captured: 2026-04-29
+    beat: 4 (the dependency)
+    follows: break-as-notification.md
+    summary: |
+      The one substrate dependency 006 has beyond 005's work.
+      JSON read/write — either a wat-json battery (Path A,
+      wraps serde_json) or wat-level parser/writer (Path B).
+      Path A wins on practicality — JSON parsing matters
+      latency-wise for high-call-count debugging sessions.
+      Ships as its own arc (mirrors wat-sqlite); future arcs
+      that need JSON inherit. Acceptance bar before opening
+      006: round-trip read/write works; polymorphic typed read
+      works; ~50 lines wat-tests cover edge cases.
+
+  - file: gating.md
+    captured: 2026-04-29
+    beat: 5 (the constraint)
+    follows: json-prerequisite.md
+    summary: |
+      Same Path B (freeze-time rejection) gating mechanism as
+      005-wat-pry. --mcp flag mirrors --pry. Both batteries can
+      coexist (--pry --mcp loads both); MCP wins entry-point
+      lookup if both set. Gate matrix: no flag → :user::main;
+      --pry alone → :wat::pry::main (rustyline); --mcp alone →
+      :wat::mcp::main (JSON-RPC); --pry --mcp → :wat::mcp::main
+      with pry primitives loaded. Production deployments without
+      flags don't host pry or mcp surfaces — opt-in by flag.
+      Composes with arc 100's wat_cli::run(&[Battery]); custom
+      consumers add the mcp battery to their own CLIs by the
+      same pattern.
+
+  - file: use-cases.md
+    captured: 2026-04-29
+    beat: 6 (what unlocks)
+    follows: gating.md
+    summary: |
+      Five concrete shapes 006 enables: (1) agent-driven
+      debugging via break-as-notification, (2) agent-driven
+      library exploration through wat introspection, (3)
+      multi-program orchestration with the agent as conductor,
+      (4) self-hosted agent loops (wat program calls Claude
+      API, uses other wat programs as tools), (5) production
+      interactive control planes via TCP attach. Each is hard
+      today because the substrate's capabilities aren't exposed
+      to agents through a uniform protocol; 006 is the small
+      layer that exposes all five. The trading lab's BOOK
+      chapters 49 / 51 / 54 / 55 / 65 / 67 keep pointing at
+      patterns that compose into wat-as-agent-Lisp; tonight
+      named that the agent is the consumer the substrate has
+      been building for.
+
+  - file: relation-to-005.md
+    captured: 2026-04-29
+    beat: 7 (the dependency map)
+    follows: use-cases.md
+    summary: |
+      Names which 005 primitives 006 reuses (break-with-stdio,
+      Environment capture, FrameInfo::env, ls/show/completions,
+      where/frames, last-error, wat/std/pry.wat patterns) and
+      what 006 adds (wat-json dep, session registry, MCP
+      dispatch, override-return, eval-in-frame). Slicing
+      dependency: 005-1 → 005-2 → wat-json → 006-1 → 006-2.
+      005's slice 3 (rustyline) and 006's slice 1+2 are
+      independent; ship in any order. The user's pattern
+      across arcs 099-104, 005, 006 is consistent: each is a
+      thin overlay on substrate that already exists; none
+      introduces new architecture. Lean: keep 005 and 006 as
+      separate scratches; they share machinery, they don't
+      share purpose.
+
+  - file: slice-plan.md
+    captured: 2026-04-29
+    beat: 8 (the build order)
+    follows: relation-to-005.md
+    summary: |
+      Four slices. Prerequisite: wat-json arc (3-4 days). Slice
+      1: basic MCP eval (3-4 days; depends on 005-1). Slice 2:
+      break-as-notification (3-4 days; depends on 005-2 + 006-1).
+      Slice 3: counterfactual primitives — override-return,
+      eval-in-frame (2-3 days; depends on 006-2). Slice 4
+      (deferred): TCP attach for remote MCP (4-6 days;
+      production deployment work, security concerns). First
+      three slices: ~7-9 days for full agent-driven debugging
+      experience over local stdio. Critical path with 005:
+      ~15-20 days for both pry experiences + their core
+      debugging features.
+
+  - file: open-questions.md
+    captured: 2026-04-29
+    beat: 9 (the unresolved)
+    follows: slice-plan.md
+    summary: |
+      13 open questions categorized: protocol-level (4) — single
+      vs two tools, request id semantics for paused calls,
+      cancellation semantics, initialize capabilities — agent
+      experience (3) — error response shape, large result
+      handling, pretty-printing — security/production (3) —
+      TLS/auth for TCP attach, sandboxed evaluation, audit
+      logging — UX/discoverability (3) — multi-line input, tool
+      description content, diagnostic notifications. Most have
+      leans documented; resolution is "first slice that surfaces
+      the question." Question #8 (TLS/auth for TCP attach) is
+      the biggest unknown — real production work — and may
+      need its own architectural arc beyond just 006. None
+      block opening the wat-rs arc once 005's prerequisites are
+      met.
+
+artifact-layout:
+  arc-root: scratch/2026/04/006-wat-mcp/
+  notes: |
+    Beat-by-beat .md files plus INDEX.yaml + README.md
+  total-files: 10    # 9 notes + INDEX.yaml
+  scaffold-status: |
+    No code scaffolds. The substrate primitives, the wat MCP
+    server, the JSON-RPC protocol mappings, and the wat-json
+    dependency are all sketched in prose. Slice 1 will produce
+    real code in wat-rs (after 005's prerequisites + wat-json
+    arc are shipped); this scratch documents the design.
+
+# ─── State ───
+status: open
+# Six load-bearing decisions banked across this scratch:
+#   1. JSON envelope, EDN payload (the collapse)              (beat 1)
+#   2. One MCP tool (wat-eval); discovery via wat              (beat 2)
+#   3. Break-as-notification protocol                          (beat 3)
+#   4. wat-json battery as the prerequisite                    (beat 4)
+#   5. Gating via --mcp flag (mirrors --pry)                   (beat 5)
+#   6. Sibling to 005, depends on 005 slices 1+2               (beat 7)
+#
+# Plus four shape decisions:
+#   7. wat-eval and wat-eval-stream as separate tools          (beat 2 / 3)
+#   8. Slice ordering: wat-json → 006-1 → 006-2 → 006-3 → 006-4 (beat 8)
+#   9. wat-mcp as its own crate; wat-cli stays minimal          (beat 5)
+#  10. Trying to fold 006 into 005 rejected — different consumers (beat 7)
+#
+# Ready to migrate to wat-rs arcs in this order:
+#   1. 005-wat-pry slice 1 substrate work
+#   2. 005-wat-pry slice 2 (break primitive + FrameInfo::env)
+#   3. wat-json arc
+#   4. 006-wat-mcp slice 1 (basic MCP eval)
+#   5. 006-wat-mcp slice 2 (break-as-notification)
+#   6+. (optional) 005 slice 3 (rustyline), 006 slice 3 (counterfactuals)
+#
+# First-slice acceptance bar (006-1, lifted from slice-plan.md):
+#   wat --mcp /tmp/test.wat opens an MCP-callable session.
+#   Agent connects via stdio JSON-RPC.
+#   tools/list returns the single wat-eval tool.
+#   tools/call wat-eval msg="(:foo 5)" evaluates against the
+#     frozen world; returns 5 (or whatever the function computes).
+#   Discovery via wat-eval (:wat::pry::ls) works.
+#   Discovery via wat-eval (:wat::pry::show :foo) works.
+#   wat (no --mcp flag) on a source file containing
+#     (:wat::mcp::*) reference fails freeze with
+#     UnknownFunction(":wat::mcp::*").
+#
+# Likely next-conversation triggers:
+#   - User asks to open the wat-json arc (the prerequisite).
+#   - User identifies a specific debugging session that would
+#     benefit from agent-driven inspection; we ship 005 + 006
+#     to give them the surface.
+#   - A separate conversation surfaces wat-json for non-MCP
+#     reasons (HTTP server battery, log formatting), which
+#     could trigger 006 ahead of schedule.

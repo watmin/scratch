@@ -1,0 +1,273 @@
+# Scratch arc — wat-pry — interactive pry for the wat substrate
+#
+# After reading wat-rs arcs 097-104 in sequence (especially 103a
+# spawn-program + HOLOGRAM.md and 104 always-fork), the user
+# recognized: the substrate has accumulated everything needed for
+# a pry-shaped REPL without anyone naming it.
+#
+# This scratch captures the structural shape — what's locked, what's
+# open, the slice ordering, and the substrate primitives that need
+# to ship — so the wat-rs arc can be drafted cleanly when the user
+# is ready.
+
+arc:
+  slug: wat-pry
+  date: 2026-04-29
+  triggered-by: |
+    User session opened with "go study the latest wat-rs/ arcs ...
+    we are doing something ... very ... interesting... it will unlock
+    something (maybe already is unlocked..)..." After reading 097
+    forward, the user named what was unlocked:
+
+    > "i think we just unlocked... repl?... the user's compiled wat
+    > has all the symbols... we can run wat --repl to jump into it?...
+    > is this true?... if this is true... can we implement something
+    > like ruby's pry?..."
+
+    > "binding.pry is /the most/ powerful thing i've ever seen in a
+    > program..."
+
+    > "rust being frozen is a blessing, not a curse...."
+
+    Across four user prompts, the design sharpened: bare REPL,
+    `(:wat::pry::break)` as the binding.pry primitive, no `cd`
+    (FQDN navigates via tab completion), `--pry` as the gating flag
+    (pry forms illegal without it), and the word is "pry" not REPL.
+
+  outcome: |
+    Structural shape locked. Five load-bearing decisions:
+      1. The freeze pipeline runs identically in both modes; only
+         the entry-point lookup differs (:user::main vs :wat::pry::main).
+      2. Pry symbols are gated by --pry; freeze rejects pry
+         references without the flag (batteries-only loading).
+      3. (:wat::pry::break) is a substrate primitive that captures
+         Environment + CALL_STACK and runs the pry loop with the
+         captured scope as eval context.
+      4. The pry loop and command dispatchers are wat code in
+         wat/std/pry.wat; only the break primitive + a few
+         introspection accessors are Rust shims.
+      5. wat-cli grows --pry initially; wat-pry as a separate crate
+         ships once the rustyline frontend grows enough features.
+
+    Substrate additions estimated: ~600 lines Rust + ~250 lines wat
+    + ~170 lines wat-cli wiring. Three slices to feature-complete
+    pry experience (~10 days). Two slices deferred (stepping +
+    TCP attach).
+
+    Ready to migrate to a wat-rs arc when the user is ready.
+
+conventions:
+  - filenames: kebab-case .md, descriptive of the topic
+  - capture user's exact words at decision points
+  - distinguish user-original insight from thinking-with extension
+  - the assistant DID NOT touch wat-rs or the lab during this scratch;
+    only the scratch dir itself
+
+# ─── Beat-by-beat capture ───
+notes:
+  - file: README.md
+    captured: 2026-04-29
+    beat: 0 (overview)
+    summary: |
+      Structural sketch + sibling-materials table + the locked
+      decisions. Top-level entry point for future readers walking
+      back into this scratch.
+
+  - file: unlock.md
+    captured: 2026-04-29
+    beat: 1 (the recognition)
+    summary: |
+      Why arcs 097-104 made pry possible. Pre-arc-097 the substrate
+      had eval primitives but no clean way to swap entry-points or
+      run an interactive loop. Arc 099 extracted the cli; arc 100
+      vended the battery-composition API; arc 101 made the cli
+      single-purpose; arc 102 made eval-ast! polymorphic; arc 103
+      shipped spawn-program + the EDN+newline pipe protocol + the
+      HOLOGRAM framing; arc 104 makes the cli always-fork.
+      Together: pry is a wat program the cli runs, not a substrate
+      addition. The freeze invariant is what makes the inspection
+      static — wat's pry is more honest than Ruby's because the
+      program you inspect IS the program you continue into.
+
+  - file: two-modes.md
+    captured: 2026-04-29
+    beat: 2 (the user's correction)
+    follows: unlock.md
+    summary: |
+      User's framing: "if we ship a wat-pry... it ignores the
+      :user::main and runs :wat::pry::main instead.. the user's
+      entrypoint file is still sourced.. all of their forms are
+      loaded but their main isn't evaluated... is that what you
+      were getting at?..." Same freeze pipeline runs in both
+      modes; the only difference is which top-level function gets
+      invoked. Bare (no entry) and entry-loaded modes share the
+      code path; entry source is Option<String>. The user's
+      :user::main is callable from the prompt as just another
+      symbol. The same source file runs both ways.
+
+  - file: gating.md
+    captured: 2026-04-29
+    beat: 3 (the constraint)
+    follows: two-modes.md
+    summary: |
+      User's constraint: "all pry forms are illegal if --pry isn't
+      passed... we ship with pry but the user must enable it...
+      if we see (:wat::pry::break) and we're not in pry mode -
+      panic". Implementation: pry battery registered only when
+      --pry set. Without the flag, the :wat::pry::* namespace
+      doesn't exist; freeze fails with UnknownFunction on any
+      pry reference. Path B (freeze-time rejection) chosen over
+      Path A (runtime panic): earliest possible failure point;
+      production binaries genuinely don't host pry internals.
+      Even unreachable pry calls fail freeze — feature, not bug,
+      because it prevents shipping a binary with latent break
+      points.
+
+  - file: break-primitive.md
+    captured: 2026-04-29
+    beat: 4 (the killer feature)
+    follows: gating.md
+    summary: |
+      (:wat::pry::break) is the binding.pry primitive. Substrate
+      captures the current Environment (Arc clone) + CALL_STACK
+      (existing thread-local from arc 016); runs the pry loop
+      with the captured scope as eval context; resumes on
+      :continue. Wat-honest shape: substrate primitive takes
+      stdio explicitly (break-with-stdio); wat-level macro
+      (:wat::pry::break) expands to the verbose form using
+      lexically-scoped stdin/stdout/stderr names. Only the
+      break primitive needs substrate-level Rust because
+      Environment capture happens INSIDE eval_form. The freeze
+      invariant is what makes resume-after-inspection honest:
+      no thread can mutate functions or constants while the
+      user inspects, so :continue resumes into exactly the
+      program that was inspected.
+
+  - file: command-set.md
+    captured: 2026-04-29
+    beat: 5 (no cd; tab completion)
+    follows: break-primitive.md
+    summary: |
+      User's framing: "i don't know if cd even has meaning in
+      wat.. everything is a fqdn..." Pry's `cd` doesn't translate
+      — wat has no ambient self / current scope. Tab completion
+      is the FQDN-native navigator. Substrate primitive
+      :wat::pry::completions walks the SymbolTable for prefix
+      matches; rustyline frontend calls it on every TAB. Command
+      set splits into bare-mode (:ls / :show / :reload / :exit
+      + tab completion) and break-mode (those plus :continue /
+      :where / :env / :frames / :up / :down / :wtf). Stepping
+      (:next / :step / :finish) is slice 4 via arc 068's
+      eval-step!.
+
+  - file: primitives.md
+    captured: 2026-04-29
+    beat: 6 (the surface)
+    follows: command-set.md
+    summary: |
+      Eight primitives in the :wat::pry::* namespace. Most are
+      thin readers over existing substrate state (SymbolTable,
+      CALL_STACK, panic_hook output). Only break-with-stdio
+      requires substrate-level Rust for Environment capture.
+      The pry loop (serve), the break macro, and the command
+      dispatchers all live in wat/std/pry.wat as wat code —
+      pry is "just a wat program" the cli runs. Total: ~600
+      lines Rust + ~250 lines wat + ~170 lines wat-cli. Compares
+      to Ruby's pry at ~25,000 lines; the substrate's prior
+      arcs did most of the work.
+
+  - file: packaging.md
+    captured: 2026-04-29
+    beat: 7 (shipping shape)
+    follows: primitives.md
+    summary: |
+      Two equivalent shapes: wat-cli with --pry flag (Shape A) vs
+      separate crates/wat-pry/ binary (Shape B). The substrate
+      doesn't change between them; only the wrapper differs.
+      Decision: ship Shape A first (slices 1-2); migrate to
+      Shape B when the rustyline frontend grows enough features
+      to deserve its own crate (around slices 3-4). The pattern
+      composes with arc 100's wat_cli::run(&[Battery]) — custom
+      consumers can build their own pry CLIs by importing the
+      pry battery + their own batteries.
+
+  - file: slice-plan.md
+    captured: 2026-04-29
+    beat: 8 (the build order)
+    follows: packaging.md
+    summary: |
+      Five slices. Slice 1: bare pry mode (--pry flag,
+      :wat::pry::main + :wat::pry::serve, ls/show/exit/reload
+      commands). Slice 2: (:wat::pry::break) + frame walking
+      + last-error. Slice 3: rustyline frontend with completion
+      / history / multi-line / colors. Slice 4 (deferred):
+      stepping via eval-step!. Slice 5 (deferred): TCP attach
+      for remote sessions. First three slices: ~10 days for
+      the full pry experience. Acceptance bars per slice
+      documented.
+
+  - file: open-questions.md
+    captured: 2026-04-29
+    beat: 9 (the unresolved)
+    follows: slice-plan.md
+    summary: |
+      14 open questions categorized: substrate-level (6) — pry::main
+      shipping shape, FrameInfo::env shape, pretty-printing, doc
+      strings, multi-client TCP, threading-vs-pry — UX (5) —
+      continuation triggers, prompt colors, history location,
+      :reload semantics, bare-pry :load — and gating edge cases (3)
+      — conditional pry forms, third-party battery sources, test
+      code registration. Most have leans documented; resolutions
+      surface in their respective slices. None block opening the
+      wat-rs arc.
+
+artifact-layout:
+  arc-root: scratch/2026/04/005-wat-pry/
+  notes: |
+    Beat-by-beat .md files plus INDEX.yaml + README.md
+  total-files: 10    # 9 notes + INDEX.yaml
+  scaffold-status: |
+    No code scaffolds. The substrate primitives, the wat loop,
+    and the wat-cli wiring are all sketched in prose. Slice 1
+    will produce real code in wat-rs; this scratch documents
+    the design that gets built.
+
+# ─── State ───
+status: open
+# Five load-bearing decisions banked across this scratch:
+#   1. Two modes, one freeze pipeline (entry-point swap only)  (beat 2)
+#   2. --pry as registration gate (freeze fails without flag)   (beat 3)
+#   3. Break primitive captures Environment + CALL_STACK         (beat 4)
+#   4. No cd; FQDN + tab completion as navigator                  (beat 5)
+#   5. Pry loop is wat code; only break primitive + accessors    (beat 6)
+#      need substrate Rust
+#
+# Six secondary decisions:
+#   6. Wat-shipped :wat::pry::main (beat 6 sub-question)
+#   7. wat-cli --pry first; wat-pry crate split later (beat 7)
+#   8. Shape A→B migration on slice 3-4 boundary (beat 7)
+#   9. Slice ordering: bare → break → rustyline → stepping → TCP (beat 8)
+#  10. Strict gating (Path B over Path A) (beat 3)
+#  11. FrameInfo gains env field for :up / :down (beat 4 sub-fog)
+#
+# Ready to migrate to a wat-rs arc. The arc would open with the
+# slice-plan from slice-plan.md as its BACKLOG, the substrate
+# primitive list from primitives.md as its slice 1 + slice 2
+# scope, and the gating mechanism from gating.md as its load-
+# bearing constraint.
+#
+# First-slice acceptance bar (lifted from slice-plan.md):
+#   wat --pry opens a bare session against batteries.
+#   :ls :wat::std::math lists the math primitives.
+#   (:wat::std::math::sqrt 2.0) prints 1.414...
+#   :exit closes cleanly.
+#   wat (no --pry flag) on a source file containing
+#     (:wat::pry::break) fails freeze with
+#     UnknownFunction(":wat::pry::break").
+#
+# Likely next-conversation triggers:
+#   - User asks to open the arc.
+#   - User identifies a debugging session that would benefit from
+#     pry; we ship slice 1 to give them the surface.
+#   - A separate conversation surfaces the rustyline integration
+#     (slice 3) ahead of slice 1 because of frontend constraints.

@@ -1,0 +1,111 @@
+# Scratch arc — directed evaluation
+#
+# The form → value graph is directed. Values don't point back to
+# forms. Many forms can produce the same value, but no value
+# determines its source form. This arc explores the consequences
+# of that directedness.
+
+arc:
+  slug: directed-evaluation
+  date: 2026-04-26
+  triggered-by: |
+    User said "i had another one" after the axiomatic-surface arc
+    closed. Articulated the form→value relation as a directed graph
+    with no reverse edges. Noted "i have more" — arc is in progress.
+  outcome: |
+    In progress. First beat captured.
+
+conventions:
+  - filenames: kebab-case .md, descriptive of the topic
+  - in each note: capture the user's voice (their words, corrections,
+    repetitions) AND attribute thinking-with extensions to the
+    conversation
+  - chapter drafts (chapter-NN-draft.md) are the polished prose forms
+    that became the BOOK.md chapter, when the arc lands
+
+notes:
+  - file: forms-as-directed-graph.md
+    captured: 2026-04-26
+    beat: 1
+    summary: |
+      The form → value relation is a function (many-to-one,
+      deterministic). The value → form relation is a relation,
+      one-to-many, unbounded. Forms point at values; values don't
+      point back. Same shape as a one-way function in cryptography.
+      Implications for the Ch 62 lattice: the lattice stores forms
+      not values; queries by value require enumeration; forms carry
+      more information than their terminals. Reframing: forms are
+      primary, values are projections.
+
+  - file: cryptographic-application.md
+    captured: 2026-04-26
+    beat: 2
+    follows: forms-as-directed-graph.md
+    summary: |
+      The directed graph IS a one-way function — the foundation of
+      cryptography. The substrate offers TWO constructions: symmetric
+      (seed as shared secret, AES-shaped — Ch 61's adjacent universes)
+      and asymmetric (form as preimage knowledge, PKI-shaped — only
+      Alice knows F such that F→V, anyone can verify once F is
+      revealed, nobody can derive F from V). The two compose into
+      two-factor: seed for the universe, form for the path. Closer
+      to a commitment-based mathematics than to any single classical
+      crypto primitive. Bitcoin's proof-of-work shape, generalized:
+      V can be any terminal, F can be any path.
+
+  - file: program-as-proof.md
+    captured: 2026-04-26
+    beat: 3 (pivot to implementation)
+    follows: cryptographic-application.md
+    summary: |
+      User said "i think we need a program to prove it?" — closes
+      the thinking phase, opens the implementation phase. By
+      Curry-Howard + Ch 62's axiomatic surface: the program IS the
+      proof — successful execution is the empirical observation
+      that the construction works. Theorem-by-execution. Three
+      claims to demonstrate: directed-graph (many forms → one
+      value); universe isolation (different seeds → different
+      values); two-factor verification (only right seed+form
+      recovers). Implementation lands as experiment NNN in the
+      lab, sibling to experiment 008's pattern. Walk smallest
+      pieces first; each deftest is a verified claim. Proof
+      write-up follows experiment success.
+
+  - file: universe-bound-vectors.md
+    captured: 2026-04-26
+    beat: 4 (sharpens beat 2)
+    follows: program-as-proof.md
+    summary: |
+      A vector without its universe is just bytes. The seed isn't
+      just a key for the encoding operation — it is the
+      interpretive context required to USE the encoded artifact
+      at all. Possession ≠ capability. Vectors travel fine
+      (serialize, transmit, persist) but only become meaningful
+      inside the universe they belong to. Without the seed, all
+      operations (cosine, unbind, atom-value, lattice query)
+      produce noise/gibberish. Tenancy is geometric — multi-tenant
+      systems store vectors from many universes side-by-side; the
+      geometry IS the access control. Closer to capability-based
+      security than to classical encryption: AES has a key for
+      decrypt; the substrate's seed IS the working environment.
+      The two-factor model from beat 2 sharpens: seed gets you
+      into the universe; form gets you to the specific point;
+      either alone leaves you outside. Sharpens T3's interpretation
+      — T3 didn't just show "different cosines"; it showed "the
+      vector encoded in one universe is operationally useless in
+      the other."
+
+# ─── Implementation status (parallel to scratch beats) ───
+implementation:
+  experiment: 009-cryptographic-substrate
+  location: holon-lab-trading/wat-tests-integ/experiment/009-cryptographic-substrate/
+  status: T1, T2, T3 green
+  files:
+    - explore-directed.wat — three deftests passing
+    - tests/experiment/experiment_009.rs (registered in Cargo.toml)
+  uncommitted: yes (pending checkpoint commit)
+
+status: open
+# Beat 4 sharpens but doesn't necessarily require a new T-step.
+# Next move: commit + push the T1-T3 checkpoint, then decide
+# T4 vs proof write-up.

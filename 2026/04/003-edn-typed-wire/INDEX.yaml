@@ -1,0 +1,281 @@
+# Scratch arc — EDN as typed wire format
+#
+# Wat is paren-only and strongly typed. EDN has [], {}, #{}, and is
+# dynamically typed. Question: how do we read/write EDN for Clojure
+# interop without losing wat's type discipline or extending the wat
+# reader?
+#
+# Pivot: user proposed using EDN's tag system to carry wat types.
+# Spec confirms tags ARE the typed-read mechanism. The active Rust
+# library (edn-format) has one parser limitation (no internal colons
+# in symbols/keywords, despite spec permitting them) that forces a
+# small encoding choice. Resolution: dot-encoded wat paths inside
+# EDN tags and keywords; transcode `::` ↔ `.` at the boundary.
+
+arc:
+  slug: edn-typed-wire
+  date: 2026-04-26
+  triggered-by: |
+    User session opened with "i have a very specific question for a
+    UX concern in wat-rs" after a study phase across wat-rs, holon-rs,
+    and proposal 058. Concrete ask: "i want to accept edn with
+    vectors as [1 2 3] expr, hashmaps as {:key1 :val1 :key2 :val2}
+    and hashsets as #{1 2 3}" — "i want to figure out how to write
+    and read edn for clojure integration."
+  outcome: |
+    In progress. Five load-bearing decisions banked:
+      1. Tags-as-types (the wire format carries type discrimination)
+      2. Dot-namespace + boundary transcoder (Strategy A within
+         edn-format's parser limitations)
+      3. Style A (per-variant tagging) applied uniformly — closed
+         via /gaze on sketched handler trees
+      4. wat_edn as router, SymbolTable as authority — no bundled
+         handlers, structural decode walks type metadata
+      5. Two-crate bridge — wat_edn (Rust/wat side, ~SymbolTable-
+         consulting) + wat-edn-clj (Clojure side, ~200 LOC of
+         conventions). Versioned together; wire format is contract.
+    Q2 (primitive tags) and Q3 (reader aliases) remain open;
+    neither blocks implementation. Ready for first slice when a
+    consumer surfaces.
+
+conventions:
+  - filenames: kebab-case .md, descriptive of the topic
+  - capture user's exact words at decision points
+  - distinguish user-original insight from thinking-with extension
+  - the assistant DID NOT touch wat-rs or the lab during this arc;
+    agents were active there. Library scaffolds live IN this scratch
+    arc dir (wat-edn/, wat-edn-clj/) as forge-able sketches, not in
+    real crate locations
+  - sketch artifacts live alongside notes when the design is dense
+    enough that the code shape itself is part of the design output
+    (not just the prose)
+
+# ─── Beat-by-beat capture ───
+notes:
+  - file: goal-and-constraints.md
+    captured: 2026-04-26
+    beat: 1
+    summary: |
+      Problem framing. EDN's three native literal forms ([], {},
+      #{}) collide with wat's paren-only reader and strong typing.
+      Two surfaces conflated in the initial ask — EDN-as-data
+      (string read/write) vs EDN-as-source-syntax (extending wat
+      reader). Assistant's first pass: keep EDN inside string
+      literals, expose a dynamic Value enum + typed-read sugar.
+      User pushed back on the next turn.
+
+  - file: tag-as-type.md
+    captured: 2026-04-26
+    beat: 2 (THE PIVOT)
+    follows: goal-and-constraints.md
+    summary: |
+      User: "can we not use edn's tags for types?" — reframes the
+      whole design. EDN's `#tag value` system is post-parse dispatch:
+      reader reads next element, passes to registered handler that
+      yields the typed value. The TAG IS THE TYPE. Spec study
+      confirmed: tags must be namespaced for user code, can wrap any
+      element including other tagged elements, unknown tags can be
+      preserved gracefully. This collapses the dynamic-vs-typed
+      split assistant proposed in beat 1.
+
+  - file: edn-format-parser-findings.md
+    captured: 2026-04-26
+    beat: 3 (verification)
+    follows: tag-as-type.md
+    summary: |
+      Verified the proposed scheme against bowbahdoe/edn-format
+      lib.rs (single-file crate, 2776 lines). `<` and `>` ARE
+      accepted in atom characters (line 459-477). But interpret_atom
+      (line 700-723) rejects ALL internal colons in symbols and
+      keywords, despite EDN spec explicitly permitting them. This
+      kills the proposed `:wat::holon::Atom` keyword form,
+      `#wat::holon/Atom` tag prefix form, and `#wat/Vec<:i64>` tag
+      body form. Three options surfaced: (A) live with limitation,
+      (B) fork/patch lib, (C) roll our own.
+
+  - file: dot-namespace-decision.md
+    captured: 2026-04-26
+    beat: 4 (decision)
+    follows: edn-format-parser-findings.md
+    summary: |
+      User: "I like A - we need fqdn names .. the dot syntax is
+      fine..." Strategy A confirmed. Use `.` instead of `::` inside
+      EDN tags and keywords. wat reader transcodes `::` ↔ `.` at
+      the boundary, so wat source code keeps its keyword-path style.
+      Mechanical, total, reversible. Multi-arg generic separator
+      `_` confirmed (since `,` is whitespace in EDN).
+
+  - file: string-examples.md
+    captured: 2026-04-26
+    beat: 5 (the surface)
+    follows: dot-namespace-decision.md
+    summary: |
+      Worked examples in the corrected dot-namespace form: primitives
+      (no tags), single-arg collections, multi-arg generics with `_`,
+      nested generics, Option/Result with two style choices,
+      HolonAST per-variant tags, programs-as-holons (atomized AST),
+      mixed with built-in #inst/#uuid, and a realistic blob (an
+      observer engram entry from the trading enterprise). All parse
+      with edn-format as-is.
+
+  - file: open-questions.md
+    captured: 2026-04-26
+    beat: 6
+    follows: string-examples.md
+    summary: |
+      Originally three open questions. Q1 (sum-type style) closed
+      in beat 7 via gaze. Q2 (primitive tags) and Q3 (reader
+      aliases) remain open with tentative leans (never tag bare
+      primitives; asymmetric aliases — read-side optional,
+      write-side FQDN-only). Neither blocks implementation.
+
+  - file: sum-style-resolution.md
+    captured: 2026-04-26
+    beat: 7 (Q1 closed)
+    follows: open-questions.md
+    summary: |
+      Reviewer flagged Q1 as load-bearing with a suggestion to
+      "cast /gaze on Q1 (style A vs B) … with a concrete
+      handler-tree sketch in front of the ward so the cost
+      difference between A and B is visible." Sketched both
+      handler trees in Rust pseudocode (per-variant tag vs
+      per-type tag with body discriminator). Applied gaze
+      framework: Style A converges (zero L1, zero L2). Style B
+      has 1 L1 (handler accepts arbitrary keywords; the type
+      system can't enforce variants) and 4 L2s (vec-extract chain,
+      protocol-overhead error variants, per-variant arity guards,
+      ~25-line closures vs ~3). Resolution: Style A applied
+      uniformly across Option, Result, HolonAST, and future user
+      enums. string-examples.md updated to match.
+
+  - file: crate-shape.md
+    captured: 2026-04-26
+    beat: 8 (architectural pivot)
+    follows: sum-style-resolution.md
+    summary: |
+      User: "i'd go against bundling in wat_edn.... wat_edn can't
+      know what symbols exist in some user app... but wat knows...
+      how can we have wat_edn suppport valid user expressions?"
+      Reframes the layering: wat_edn is a router, not a registry.
+      The SymbolTable is the authority on the type universe;
+      wat_edn delegates to it at dispatch time. Walks type
+      metadata structurally — no bundled handlers, no
+      registration ceremony. User apps get EDN read/write for
+      free when they declare their types. wat_edn stays tiny.
+      canonical_edn_holon registers as a CustomEdn handler on
+      the HolonAST type entry. Same architectural pattern as
+      every other capability (lru, channels, file I/O) — consult
+      the SymbolTable, don't shadow it.
+
+  - file: consumer-bridge.md
+    captured: 2026-04-26
+    beat: 9 (end-to-end proof)
+    follows: crate-shape.md
+    summary: |
+      User: "the whole point of this is to provide a bridge to
+      clojure... i need apps on both sides to interop..." Walked
+      a real bidirectional scenario: wat enterprise emits trade
+      signals; Clojure dashboard reads them; Clojure writes config
+      adjustments back; wat reads them on next tick. Two struct
+      types, no application ceremony on either side. Surfaced the
+      structural asymmetry — wat side is SymbolTable-derived
+      (free); Clojure has no equivalent registry, so per-tag
+      dispatch is manual unless a small library closes the gap.
+      Named the second crate: wat-edn-clj (~250 LOC) ships default
+      readers + print-methods for the wat namespace, consumers
+      register only application types. Versioned alongside wat_edn
+      so wire format stays in sync. Established the realistic-blob
+      round-trip as first-slice acceptance bar. User: "outstanding
+      - let's get this in a doc - we can't lose this - this is
+      stellar."
+
+# ─── Forge — library scaffolds (beat 10) ─────────────────────────
+sketches:
+  - dir: wat-edn/
+    captured: 2026-04-27
+    beat: 10 (forge — Rust+wat side scaffold)
+    follows: consumer-bridge.md
+    summary: |
+      User: "you need the .wat and .clj files too -- like --
+      basically just wrote the full library for both sides to
+      comm". Took the consumer-bridge sketches as the spec and
+      forged actual files. wat-edn/ is the Rust crate scaffold:
+      Cargo.toml, lib.rs orchestration, transcode.rs (with
+      passing unit tests covering the tricky generic cases),
+      value.rs (Value + EdnError), dispatch.rs (the router —
+      read/write entrypoints, structural walkers for struct +
+      parametric, with Style A sum tagging), holon_ast.rs
+      (CustomEdn placeholder for canonical_edn_holon), and
+      examples/consumer.wat (TradeSignal emit + SizeAdjust read).
+      Marked SCRATCH throughout — wat-rs API surfaces assumed
+      from project memory; verify before lifting.
+
+  - dir: wat-edn-clj/
+    captured: 2026-04-27
+    beat: 10 (forge — Clojure side library)
+    follows: wat-edn/
+    summary: |
+      Clojure-side sibling: deps.edn, core.clj (~250 LOC of
+      readers + writers + variant helpers + register-types!),
+      resources/data_readers.clj (manifest fallback for
+      code-as-data paths), examples/dashboard.clj. The default
+      reader fn handles all wat.* tags with prefix matching;
+      consumers register only application types. Variant
+      wrappers (some-of/none-of/ok-of/err-of) and predicates
+      with non-shadowing names (some-variant? etc.) plus
+      fold-option / fold-result for ergonomic destructuring.
+      tag-as helper preserves wat-side struct identity through
+      print-method dispatch.
+
+artifact-layout:
+  arc-root: scratch/2026/04/003-edn-typed-wire/
+  notes: |
+    Beat-by-beat .md files plus INDEX.yaml + README.md
+  scaffolds: |
+    wat-edn/        — Rust + wat crate scaffold (7 files)
+    wat-edn-clj/    — Clojure library scaffold (4 files + manifest)
+  total-files: 21    # 9 notes + INDEX + README + 7 wat-edn + 4 wat-edn-clj
+  scaffold-status: |
+    Both compile conceptually against their target ecosystems
+    (wat-rs + Clojure 1.11). Several wat-rs API shapes are
+    assumed from project memory; verify before lifting.
+    See README.md for "complete vs stubbed" punch list.
+
+# ─── State ───
+status: open
+# Five load-bearing decisions banked across this arc:
+#   1. Tags-as-types (beat 2)
+#   2. Dot-namespace + boundary transcoder (beat 4)
+#   3. Style A uniform (beat 7, via gaze)
+#   4. Router-not-registry layering (beat 8)
+#   5. Two-crate bridge with named asymmetry (beat 9)
+#
+# Q2 and Q3 remain open with tentative leans; neither blocks
+# implementation. Ready for first slice when a consumer surfaces.
+# Likely first triggers: Phase-4 engram persist+reload, programs-
+# as-holons cross-process transmit, lab needs to read
+# canonical_edn_holon output back, or a Clojure-side fixture.
+#
+# First-slice scope (Rust/wat side, sketched in crate-shape.md):
+#   1. wat_edn skeleton — #[wat_dispatch] shims for edn-format
+#   2. boundary transcoder (:: ↔ .)
+#   3. dispatch loop with SymbolTable lookup
+#   4. structural walkers for struct / enum / parametric
+#   5. CustomEdn registration for HolonAST routing to
+#      canonical_edn_holon
+#
+# First-slice scope (Clojure side, sketched in consumer-bridge.md):
+#   1. wat-edn-clj skeleton — default reader fn for wat.* prefix
+#   2. print-method conventions for application types
+#   3. register-types! macro for one-line app-type wiring
+#   4. variant wrapping for Some/None/Ok/Err
+#
+# Acceptance bar (covers both crates):
+#   - wat write → EDN file → Clojure read → display
+#   - Clojure write → EDN file → wat read → consume
+#   - Byte-equivalent round-trip on each leg
+#   - Realistic blob from string-examples.md or TradeSignal from
+#     consumer-bridge.md as the test fixture
+#
+# Assistant deliberately wrote no code during this arc;
+# user explicitly said agents were working in wat-rs and the lab.

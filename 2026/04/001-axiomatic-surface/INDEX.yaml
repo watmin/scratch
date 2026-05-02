@@ -1,0 +1,168 @@
+# Scratch arc — the axiomatic surface
+#
+# A single afternoon's articulation walked from tangent-sphere geometry
+# to a named foundational concept the user had been carrying without
+# language for years. Six beats of thinking-with, one addendum on
+# lineage, one extension into mind, two polished book chapters.
+#
+# Arc shipped to BOOK.md as Chapter 62 (The Axiomatic Surface) and
+# Chapter 63 (Memes as Programs) — commit 5be387e on main, 2026-04-26.
+# The seven raw notes plus two chapter drafts remain here as the
+# attribution-clear working material that became the chapters.
+
+arc:
+  slug: axiomatic-surface
+  date: 2026-04-26
+  triggered-by: |
+    User paused mid-Treasury work on experiment 008 to articulate
+    a thought they couldn't yet say. The thought turned out to be
+    the destination the substrate had been climbing toward since
+    Chapter 51.
+  outcome: |
+    Two book chapters appended to BOOK.md:
+      - Chapter 62 — The Axiomatic Surface
+      - Chapter 63 — Memes as Programs
+    Plus seven scratch notes preserved as raw working material.
+
+conventions:
+  - filenames: kebab-case .md, descriptive of the topic
+  - in each note: capture the user's voice (their words, corrections,
+    repetitions) AND attribute thinking-with extensions to the
+    conversation, so future-us knows what was original insight vs
+    collaborative articulation
+  - chapter drafts (chapter-NN-draft.md) are the polished prose forms
+    that became the BOOK.md chapter; they are the bridge between the
+    raw notes and the published artifact
+
+# ─── Raw beats — the six-beat arc as it unfolded ───
+notes:
+  - file: tangent-spheres.md
+    captured: 2026-04-26
+    beat: 1
+    summary: |
+      Holons as tangent unit spheres in 10k-dim. Kanerva capacity is
+      the kissing number under cosine threshold, not arithmetic.
+      Volume privacy + surface composition. Edge IS the API. Holon
+      as closure. The "Venn diagram with no overlap" the user wanted
+      a word for is tangency.
+
+  - file: lattice-bounded-infinities.md
+    captured: 2026-04-26
+    beat: 2
+    follows: tangent-spheres.md
+    summary: |
+      Tangent-spheres become a LATTICE when you zoom out. Atoms are
+      discrete labels (lattice points); interiors are bounded
+      infinities between them. Integer N is reframed as a NAME for
+      a region (e.g. cell-2 = (1,2)) rather than a point. Every
+      vector has two answers: cell-membership (discrete) and
+      position-within-cell (continuous). cos = bias; tan = boundary.
+      The geometry scalar encoding already runs on, finally named.
+
+  - file: lattice-as-hashmap.md
+    captured: 2026-04-26
+    beat: 3
+    follows: lattice-bounded-infinities.md
+    summary: |
+      Labels don't have to be integers. Tokens of any kind work as
+      lattice points. bundle("foo","baz") implements SET membership.
+      Bind+bundle implements HASH-MAP. Same lattice, one extra
+      rotation per entry. Library's role-filler binding, encoder.py,
+      EngramLibrary — all running on this geometry.
+
+  - file: programs-as-atoms.md
+    captured: 2026-04-26
+    beat: 4
+    follows: lattice-as-hashmap.md
+    summary: |
+      Atoms can be PROGRAMS. Two-stage probe: presence (cos) + value
+      (unbind). Hit → substitute cached value during evaluation.
+      Miss → compute, bind result back. Evaluation becomes a lattice
+      walk. The cache proves a form has a terminal; usefulness
+      depends on context-equivalence (purity).
+
+  - file: surface-forms-database.md
+    captured: 2026-04-26
+    beat: 5
+    follows: programs-as-atoms.md
+    summary: |
+      Forms have a SURFACE (substituted, concrete) vs an INTERIOR
+      (recursive expansion). SURFACE is the lookup key. Cache →
+      DATABASE: per-process memoization becomes per-substrate. Same
+      vector_manager seed = same atoms across instances. The
+      expensive interior happens ONCE in the world; everyone else
+      pays only the lookup cost.
+
+  - file: axiomatic-surface.md
+    captured: 2026-04-26
+    beat: 6 (climax)
+    follows: surface-forms-database.md
+    summary: |
+      THE NAMED DESTINATION. User has been calling this "axiomatic
+      surface" for years; couldn't express it until wat existed.
+      (= (+ 2 2) (* 1 4)) is the seed: two distinct surfaces with
+      the same terminal are extensionally equal — assertion is two
+      lookups + a comparison. Each (surface, terminal) is an AXIOM;
+      new work composes from existing axioms; the lattice grows in
+      DEPTH. Collaborative — knowledge accumulation at substrate
+      level. Mathematics by accretion.
+
+  - file: principia-and-the-lattice.md
+    captured: 2026-04-26
+    type: addendum
+    follows: axiomatic-surface.md
+    summary: |
+      User recognized the lineage via Veritasium video on Math's
+      Fundamental Flaw — Russell/Whitehead's Principia, Hilbert's
+      program, Gödel, Turing. The lattice rhymes hard with what
+      Hilbert wanted but corrects it via the lessons of Gödel and
+      Turing — by ABANDONING absolute claims. A third path beside
+      the failed Hilbert dream and modern proof assistants.
+
+  - file: memes-as-programs.md
+    captured: 2026-04-26
+    type: extension
+    follows: principia-and-the-lattice.md
+    summary: |
+      Extension into mind. Memes ARE functions installed in minds
+      (Dawkins parallel). π-shaped: named functions whose output is
+      invariant in shape across the input class. coincident? becomes
+      the meme-comparison primitive made external. The wat machine
+      is a MEME INSPECTOR. The user's Greek meme inheritance, the
+      "I attack impossible relentlessly" motto-as-meme, the
+      datamancer self-naming as installation.
+
+# ─── Polished output — what the beats became ───
+chapters:
+  - file: chapter-62-draft.md
+    title: The Axiomatic Surface
+    book-chapter: 62
+    derived-from: |
+      tangent-spheres.md, lattice-bounded-infinities.md,
+      lattice-as-hashmap.md, programs-as-atoms.md,
+      surface-forms-database.md, axiomatic-surface.md,
+      principia-and-the-lattice.md
+    additions: |
+      - Two footnotes (journey-as-prompting + what-made-this-possible)
+      - Hilbert epitaph post scriptum coda
+    landed: BOOK.md @ commit 5be387e
+
+  - file: chapter-63-draft.md
+    title: Memes as Programs
+    book-chapter: 63
+    derived-from: memes-as-programs.md
+    additions: |
+      - "God Is A Weapon" music section (Falling in Reverse +
+        Marilyn Manson) per Chapter 4 music convention
+      - Datamancer section ("Do you think I call myself
+        datamancer for a joke?")
+      - The parental meme close ("You can do anything you put
+        your mind to")
+    landed: BOOK.md @ commit 5be387e
+
+# ─── State ───
+status: closed
+# This arc completed and landed. Future arcs go in their own
+# YYYY/MM/NNN-slug/ directories alongside this one. Future thinking
+# that wants to revisit this material has the raw notes here as
+# attribution-clear sources.

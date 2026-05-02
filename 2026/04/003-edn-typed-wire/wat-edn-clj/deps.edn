@@ -1,0 +1,25 @@
+;;
+;; SCRATCH SKETCH — arc 003-edn-typed-wire.
+;;
+;; Clojure-side bridge library for wat_edn EDN format.
+;; ~250 LOC of conventions; ships defaults for the wat.* tag
+;; namespace so consumers register only application types.
+;;
+
+{:paths ["src" "resources"]
+ :deps  {org.clojure/clojure {:mvn/version "1.11.1"}}
+
+ :aliases
+ {:dev
+  {:extra-paths ["examples"]
+   :extra-deps  {org.clojure/tools.namespace {:mvn/version "1.4.4"}}}
+
+  :test
+  {:extra-paths ["test"]
+   :extra-deps  {io.github.cognitect-labs/test-runner
+                 {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+   :main-opts   ["-m" "cognitect.test-runner"]}
+
+  :run-dashboard
+  {:extra-paths ["examples"]
+   :main-opts   ["-m" "dashboard"]}}}
