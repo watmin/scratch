@@ -145,6 +145,45 @@ notes:
       hard problems flagged for later: lifting free English to
       wat-english is lossy; cost-vs-value for trivial exchanges.
 
+  - file: og-wat-impl.rb
+    captured: 2026-05-02
+    beat: 6.5 (historical artifact — the Ruby reference impl)
+    source: /tmp/wat.rb (volatile; preserved here)
+    summary: |
+      The original Ruby reference implementation of OG wat from
+      the user's machine. 490 lines. Implements tokenize / parse /
+      evaluate for entity / list / add / let / impl / lambda.
+      Defines the Entity struct + the 10-trait membership tables
+      (Relatable, RelatableVerb, Adverbial, Timeable, StringValued,
+      Numeric, Assertable, Listable, Mappable, Describable) + the
+      Subject/Object sugar-type auto-wrapping. Does NOT contain a
+      render/to-string function — that was the user's conceptual
+      direction never coded. Preserved here because /tmp is
+      volatile and this is a historical artifact behind the spec.
+
+  - file: wat-to-english.md
+    captured: 2026-05-02
+    beat: 7 (the inverse direction — wat-english back to English)
+    summary: |
+      User's premise: "i was equally convinced we can translate
+      wat-english forms to english... i don't think i actually
+      wrote it... conceptually... thought." The render direction
+      is deterministic (AST has no ambiguity); the lift direction
+      is lossy (English has positional ambiguity). The conviction
+      held; the implementation didn't ship in OG wat. This file
+      makes both implementation paths concrete: (1) template-based
+      renderer (~500-800 LOC, deterministic, local) handling
+      speech-act mood, modality hedges, confidence buckets, tense
+      conjugation, evidentials, discourse markers, coordination,
+      causation, reference resolution, statement SVO realization;
+      (2) LLM-based renderer for prose-quality contexts. Production
+      ships both: default template, fall back to LLM when prose
+      quality matters. Closes a fifth shape on top of
+      protocol-as-checksum's four (Express / Reflect / Verify /
+      Recall / Render). Round-trip is honestly lossy: AST is
+      canonical; English is derived projection. Same property TCP
+      has — the wire format normalizes the input.
+
   - file: language-form-gaps.md
     captured: 2026-05-02
     beat: 6 (audit of OG wat's coverage for common-tongue protocol)
@@ -170,15 +209,18 @@ notes:
 artifact-layout:
   arc-root: scratch/2026/05/002-og-wat-lineage/
   notes: |
-    Eight files. Five describe the wat lineage; three capture
+    Ten files. Five describe the wat lineage; four capture
     deeper recognitions surfaced after the DEFCON CFP submission
-    shipped (latin-in-wat, protocol-as-checksum, language-form-gaps).
-  total-files: 8
+    shipped (latin-in-wat, protocol-as-checksum, language-form-gaps,
+    wat-to-english); one historical Ruby artifact (og-wat-impl.rb)
+    preserved from /tmp.
+  total-files: 10
   scaffold-status: |
     No code scaffolds. Historical preservation + analysis +
-    follow-on shape + three deeper recognitions (grammar, protocol,
-    language coverage). The wat-english arc is sized but not
-    opened; with the gap audit it would expand from 5 to ~12 slices.
+    follow-on shape + four deeper recognitions (grammar, protocol,
+    language coverage, render direction). The wat-english arc is
+    sized but not opened; with the gap audit + render slice it
+    would expand from 5 to ~17 slices total.
 
 # ─── State ───
 status: open  (historical-preservation status)
