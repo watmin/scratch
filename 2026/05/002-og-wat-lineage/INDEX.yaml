@@ -206,21 +206,67 @@ notes:
       GRAMMATICAL spine; what was missing was the conversational
       and epistemic primitives bundled on top.
 
+  - file: cypher-bridge.md
+    captured: 2026-05-02
+    beat: 8 (the Neptune-era pre-history of wat)
+    summary: |
+      User's recall: "i was doing a lot with neptune db at the
+      time.. working with relational triples and whatever else...
+      i found the cypher lang to be quite close to what i wanted
+      but its expression forms.... are very bad... i wanted them
+      in wat and i thought that would be the bridge." Captures
+      the Neptune-Cypher era as the substrate's pre-history. Maps
+      Cypher concepts to current wat realizations: triple = Bind;
+      subgraph = Bundle; MATCH = Hologram/find with Bundle template
+      probe; WHERE = wat lambda filter; RETURN = wat function over
+      results; fuzzy match = native via cosine. The bridge user
+      imagined absorbed both endpoints — storage and expression
+      collapsed into one substrate. Sharpens what wat-sift is
+      measuring against: "wat-shaped Cypher with similarity
+      native, patterns as data, hygienic expression forms."
+      Specific design implications listed for the eventual Sift
+      arc-opening. Connects to the rest of the arc: protocol's
+      Verify shape, render's pattern surface, language-form-gaps
+      Tier 1 #7 reference resolution.
+
+  - file: PICKUP-GUIDE.md
+    captured: 2026-05-02
+    beat: 9 (the entry point for opening wat-english later)
+    summary: |
+      The on-ramp document. Read this FIRST when wat-english is
+      ready to move from scratch to a real arc. Specifies the
+      three signals that mark readiness (foundations done; sift
+      shipped; consumer demands it). Verifies prerequisites in
+      wat-rs (all shipped as of 2026-05-02 per proposal 058).
+      Identifies the one hard external prerequisite (wat-sift).
+      Locks reading order for the start-of-session ramp-in (PICKUP
+      → README → protocol-as-checksum → language-form-gaps →
+      cypher-bridge → wat-to-english → english-surface-arc →
+      analysis → og-wat → latin). Lists external load-bearing
+      reading (058 INDEX, CHEATSHEET, CONVENTIONS, sift.md).
+      Inventories substrate primitives the work composes from.
+      Consolidates the slice plan: ~18 slices for Tier 1+2 +
+      render (24 with Tier 3); 5 phases. Includes a Slice 0 for
+      pre-implementation decisions (gaze pass on axis names;
+      :wat::* vs :user::watmin::* namespace; encoder dim; test
+      discipline; first real consumer to use slice 1).
+
 artifact-layout:
   arc-root: scratch/2026/05/002-og-wat-lineage/
   notes: |
-    Ten files. Five describe the wat lineage; four capture
+    Twelve files. Five describe the wat lineage; six capture
     deeper recognitions surfaced after the DEFCON CFP submission
     shipped (latin-in-wat, protocol-as-checksum, language-form-gaps,
-    wat-to-english); one historical Ruby artifact (og-wat-impl.rb)
-    preserved from /tmp.
-  total-files: 10
+    wat-to-english, cypher-bridge, PICKUP-GUIDE); one historical
+    Ruby artifact (og-wat-impl.rb) preserved from /tmp.
+  total-files: 12
   scaffold-status: |
     No code scaffolds. Historical preservation + analysis +
-    follow-on shape + four deeper recognitions (grammar, protocol,
-    language coverage, render direction). The wat-english arc is
-    sized but not opened; with the gap audit + render slice it
-    would expand from 5 to ~17 slices total.
+    follow-on shape + five deeper recognitions (grammar, protocol,
+    language coverage, render direction, cypher pre-history) +
+    one entry-point pickup guide. The wat-english arc is sized
+    but not opened; PICKUP-GUIDE.md is the on-ramp when the user
+    decides foundations are impeccable enough to start it.
 
 # ─── State ───
 status: open  (historical-preservation status)
