@@ -98,6 +98,174 @@ transport-as-type) is answered:
 Whether all four constructors return the same `:Program<:I, :O>`
 or distinct types is Q1's question.
 
+## ✅ LOCKED — Q-channel: Multiplexed Ok/Err channels — the wire IS Result<T, E>
+
+User direction (2026-05-03):
+
+> *"the thing i don't know how to handle at all and i think is
+> the largeset unlock... [...] for remote programs... i think
+> we need a transport protocol that delivers stdout and stderr
+> over the 'the stdout' pipe..."*
+
+> *"the transport protocol is labelled... when data arrives its
+> either on the Ok channel or the Err channel -- we must model
+> it as a multiplex... the contract is every emission must be
+> declared by the sender as to what kind of emission this is"*
+
+> *"http, tls, mtls can all build their nuanced complexity on
+> top of this... the unix domain socket unlocks them all"*
+
+This is the load-bearing protocol decision. Single wire carries
+both channels; every emission labeled at the channel level;
+binary classification (Ok or Err); contract enforced — sender
+MUST declare which channel each emission belongs to.
+
+### The asymmetry being solved
+
+Three execution boundaries; three diagnostic-channel shapes:
+
+| Boundary | input/output | diagnostic channel |
+|---|---|---|
+| **Threads** (in-process) | pseudo-pipes (in-memory) | panics caught in-vm |
+| **Processes** (fork) | real pipes (libc) | real stderr pipe |
+| **Remote** (socket) | single wire | **NOTHING — must solve** |
+
+Without solving the remote case, RemoteProgram is broken at
+the diagnostic boundary — panics either disappear silently or
+corrupt the response stream. Both unacceptable for a serious
+abstraction. The multiplexed Ok/Err protocol is the unlock.
+
+### The wire IS Result<T, E>
+
+Every emission gets a channel label. Two channels. Binary.
+
+```edn
+;; Ok-channel emission (sender's "normal output" path)
+{:channel :ok :payload <T-as-edn>}
+
+;; Err-channel emission (sender's "diagnostic/error" path)
+{:channel :err :payload <E-as-edn>}
+```
+
+The handler's signature `:I -> :Result<:O, :E>` extends to the
+wire literally: T is the Ok-channel payload type; E is the
+Err-channel payload type. **The type system extends across the
+boundary unchanged.** No impedance mismatch.
+
+Per the four questions:
+
+- **Obvious?** ✅✅ — every frame self-declares; receiver has
+  ONE rule (read the channel field)
+- **Simple?** ✅✅ — binary classification; no hierarchy of
+  severities; no convention-by-content
+- **Honest?** ✅✅✅ — the wire IS the Result type; the type
+  system extends across the boundary by construction; an
+  emission cannot exist without a channel label (contract
+  enforced)
+- **Good UX?** ✅ — receivers have ONE dispatch rule instead
+  of N
+
+**Triple checkmark on Honest.** Same shape as auto-kwargs
+(arc 008): structural impossibility of being wrong because the
+constraint is in the type system, not the convention. The path
+is carved; the protocol enforces what it claims.
+
+### Diagnostic categories live IN the E type, not in the wire
+
+The wire doesn't proliferate frame types for "info" / "warn" /
+"panic" — those are variants of the application's E enum:
+
+```scheme
+(:wat::core::enum :wat::remote::Diagnostic
+  ((Info     (message :String)))
+  ((Warn     (message :String) (location :Span)))
+  ((Error    (message :String) (cause :HolonAST)))
+  ((Panic    (trace :PanicInfo))))
+```
+
+Then the handler's signature becomes:
+
+```scheme
+(:wat::core::define
+  (:my-handler
+    (input :MyInput)
+    -> :Result<:MyOutput, :wat::remote::Diagnostic>)
+  body)
+```
+
+Or if the handler returns its own error type, the runtime
+wraps panics into the standard Diagnostic enum. Either way:
+the CHANNEL is binary (Ok/Err); the SUB-TYPE within Err is the
+application's enum. **The wire stays simple; the language
+carries the categorization.**
+
+### Frame ordering during a call
+
+For request-response (one-shot RPC):
+- 0..N Err-channel emissions during the call (logs, warnings,
+  intermediate diagnostics)
+- Followed by EXACTLY 1 Ok-channel emission (the final response)
+  OR a terminal Err-channel emission (panic, or handler returned
+  Err)
+
+For streaming (`:RemoteStream<I, O>`, deferred per Q5):
+- 0..N Err-channel emissions interleaved
+- 0..M Ok-channel emissions over time (each a value in the stream)
+- Eventually a terminal frame (close-channel signal, or terminal
+  Err)
+
+The Ok/Err contract holds in both shapes. **The channel
+discipline is the same regardless of one-shot vs streaming.**
+
+### Why this unlocks the other tiers
+
+Per user direction: *"http, tls, mtls can all build their
+nuanced complexity on top of this... the unix domain socket
+unlocks them all"*
+
+The protocol layering is now:
+
+```
+LAYER 3 — TYPED PROGRAM    :wat::remote::Program<I, O>
+                            (call / serve / handle lifetime)
+LAYER 2 — WIRE             EDN length-prefixed frames with
+                            Ok/Err channel discriminator
+                            ✓ TRANSPORT-AGNOSTIC
+                            ✓ THE LOAD-BEARING PROTOCOL
+LAYER 1 — TRANSPORT        per-tier connect/listen primitives
+                            (Unix socket / HTTP listener /
+                             HTTPS / mTLS handshake)
+                            ✓ ONLY THIS DIFFERS PER TIER
+```
+
+Once Layer 2 is right for Unix domain, Layers 2 and 3 are the
+same across ALL four tiers. Layers 2+3 are written ONCE; Layer
+1 swaps in per tier. **HTTP / HTTPS / mTLS just add their
+transport-specific complexity (HTTP framing, TLS handshake, mTLS
+cert auth) WITHOUT changing the upper layers.**
+
+### Implications beyond remote — the bigger unification
+
+The labeled-frame protocol naturally applies to threads and
+processes too:
+
+| Boundary | Labeled-frame protocol applies? |
+|---|---|
+| **Threads** | YES — gains a real Err channel they don't have today |
+| **Processes** | OPTIONAL — could ride over native pipes OR use the protocol over one combined pipe (uniformity) |
+| **Remote** | YES — the trigger; only viable shape |
+
+If all three boundaries adopt the protocol, **wat code is
+write-once / run-anywhere across local thread, forked process,
+and remote**. The transport changes; the protocol stays. The
+wat code that calls `:wat::io/log` works identically in all
+three contexts.
+
+That's the second-order unlock. RemoteProgram forces solving
+this; the solution generalizes; the discipline propagates back
+to local execution. (Documented as future-work; not gated on
+RemoteProgram shipping.)
+
 ## ✅ LOCKED — Q3: Wire format = EDN
 
 User direction (2026-05-03):

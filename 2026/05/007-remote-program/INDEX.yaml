@@ -60,6 +60,76 @@ arc:
     firm up. The arc gets the slice plan when at least Q8,
     Q1, Q2, Q4 have been answered.
 
+  refinement-2026-05-03-multiplexed-channels: |
+    User identified the load-bearing protocol decision after
+    we returned to RemoteProgram from the kwarg-macros tangent:
+
+    > "the thing i don't know how to handle at all and i think
+    > is the largeset unlock... [...] for remote programs... i
+    > think we need a transport protocol that delivers stdout
+    > and stderr over the 'the stdout' pipe..."
+
+    The asymmetry: threads have stdin/stdout pseudo-pipes +
+    in-vm panic catching; processes have real stdin/stdout/
+    stderr pipes; REMOTE has only one wire and no stderr-
+    equivalent. Without solving this, RemoteProgram is broken
+    at the diagnostic boundary.
+
+    User sharpened to a precise contract:
+
+    > "the transport protocol is labelled... when data arrives
+    > its either on the Ok channel or the Err channel -- we
+    > must model it as a multiplex... the contract is every
+    > emission must be declared by the sender as to what kind
+    > of emission this is"
+
+    The decision: binary channel discriminator per emission;
+    contract enforced (sender MUST label). The wire IS
+    Result<T, E> — the type system extends across the boundary
+    by construction.
+
+    Per the four questions:
+    - Obvious: ✅✅
+    - Simple: ✅✅
+    - Honest: ✅✅✅ (structural impossibility — emission cannot
+      exist without a channel label; the constraint is in the
+      type system, not the convention)
+    - Good UX: ✅
+
+    SECOND TRIPLE-CHECKMARK on Honest in this design session
+    (after auto-kwargs in arc 008). Same shape: structural
+    impossibility because the constraint lives in the type
+    system, not in convention.
+
+    Diagnostic categories (info / warn / error / panic) live
+    IN the E enum, not in the wire protocol. The wire stays
+    binary; the language carries categorization.
+
+    User direction on the unlock significance:
+
+    > "http, tls, mtls can all build their nuanced complexity
+    > on top of this... the unix domain socket unlocks them all"
+
+    The layering becomes clean:
+    - LAYER 3 (typed program) — transport-agnostic
+    - LAYER 2 (wire with Ok/Err channel) — transport-agnostic;
+      THE LOAD-BEARING PROTOCOL
+    - LAYER 1 (transport) — per-tier; only this differs
+
+    Once Unix domain is working, HTTP / HTTPS / mTLS add only
+    their transport-specific complexity. Layers 2+3 are written
+    ONCE.
+
+    OUTCOME: Q-channel marked ✅ LOCKED in DESIGN.md.
+    Bigger-unification potential noted (threads + processes
+    benefit from same protocol). Q1-Q8 still open per the
+    in-progress design status.
+
+    User direction on capture:
+    > "yes - i think we have what we need - http, tls, mtls
+    > can all build their nuanced complexity on top of this...
+    > the unix domain socket unlocks them all"
+
   refinement-2026-05-03-syntax-pivot: |
     User pivoted from "answer Q8" to "i was more curious by
     your config forms" — flagged the keyword-arg constructor
