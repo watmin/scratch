@@ -164,18 +164,70 @@ proposals; expect heavy markup.
 Bindings vector indented to align with the FIRST binding's open
 paren. Body indented exactly 2 from the form's open paren.
 
-### Rule 14 ❓ — `define` keeps signature on head line if it fits
+### Rule 14 ✅ — `define` is always vertical
 
+User locked 2026-05-02 with explicit canonical examples covering
+0-arg / 1-arg / multi-arg cases.
+
+**Shape:**
+- `:wat::core::define` keyword alone on line 1
+- signature subform `(:NAME ...)` indented 2; name on
+  signature's first line
+- args one per line, indented 4 (zero or more — including the
+  zero case)
+- `-> :RET` on own line, indented 4, always last in signature
+- body indented 2, matching the signature's open paren depth
+- **always vertical** — no fits-on-one-line exception,
+  regardless of arg count
+
+**0-arg / nullary (Q2 → option B; stays vertical):**
 ```scheme
-;; YES — fits on one line
-(:wat::core::define (:user::foo (x :T) -> :U)
-  body)
-
-;; YES — signature too long; on next line indented 2
 (:wat::core::define
-  (:user::very-long-function-name (x :Type) (y :OtherType) (z :ThirdType) -> :ResultType)
-  body)
+  (:pi
+    -> :f64)
+  3.14159)
 ```
+
+**1-arg (Q1 → always vertical, even at the cost of 5 lines for a
+1-line function):**
+```scheme
+(:wat::core::define
+  (:double
+    (x :i64)
+    -> :i64)
+  (:wat::core::* x 2))
+```
+
+**Multi-arg (the user's original example):**
+```scheme
+(:wat::core::define
+  (:my-fn
+    (some-arg :some-type)
+    (next-arg :next-type)
+    -> :ret-type)
+  (...body...))
+```
+
+**Why this shape:**
+- `define` alone separates the "what we're doing" keyword from
+  the "what we're defining"
+- Signature subform is a self-contained structural unit
+- One arg per line is diff-friendly (adding/removing an arg is
+  a one-line diff)
+- Arrow + ret type on its own line is visually distinct from
+  args
+- Body indent matches signature indent → visual symmetry between
+  the two halves of the form
+- Always-vertical rule is simple to apply; no edge cases for
+  short signatures
+
+**Deferred (linked rules, not in scope for Rule 14 itself):**
+- `lambda` — Q3, user said "pretty much exactly yes" but want
+  to address it as its own rule
+- `defmacro` — Q4, same, "pretty much exactly yes"
+- `let*` (and related) — Q5, deferred
+
+These will get their own rules; Rule 14 covers `define` only.
 
 ### Rule 15 ❓ — `lambda` keeps params on head line; body indented 2
 
