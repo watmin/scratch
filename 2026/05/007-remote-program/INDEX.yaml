@@ -1,0 +1,115 @@
+# Scratch arc — RemoteProgram: typed remote program calls in wat
+#
+# Last item from random-notes.txt's four-item list. Application-
+# tier rather than foundation-tier (sits above the toolkit
+# quartet). Design is in-progress; this arc captures locked
+# decisions + open questions ready to be answered one-at-a-time.
+
+arc:
+  slug: remote-program
+  date: 2026-05-03
+  triggered-by: |
+    User direction:
+
+    > "alright.. RemoteProgram... there's tiers to this...
+    >
+    > unix domain
+    > localhost http
+    > remote https
+    > remote mtls
+    >
+    > -- that's it - we don't allow clear text over the network
+    >
+    > i think we can model this right?..."
+
+    > "the first one... edn is the transport protocol..."
+
+    User direction on tempo:
+
+    > "great questions - get them on disk .. i need to work
+    > them one by one..."
+
+  outcome: |
+    Two decisions locked:
+
+    1. THE FOUR-TIER MODEL. RemoteProgram supports exactly four
+       transports: unix domain, localhost HTTP, remote HTTPS,
+       remote mTLS. CONSPICUOUSLY ABSENT: remote HTTP. The
+       no-clear-text-over-network invariant is enforced at the
+       TYPE SYSTEM level — there's no constructor for
+       remote-without-encryption. Honest by construction.
+
+    2. WIRE FORMAT IS EDN. Length-prefixed EDN frames over the
+       wire; round-trips through wat::edn::write / wat::edn::read.
+       Same shape wat-edn already provides for other consumers.
+       JSON via wat-edn for heterogeneous-server scenarios is
+       implied but secondary.
+
+    Seven design questions enumerated in DESIGN.md, ordered for
+    one-at-a-time work:
+
+    Q8 — Who is the first consumer? (grounds everything)
+    Q1 — Transport-as-config vs transport-as-type
+    Q2 — Connection model: persistent or per-call
+    Q4 — Server side scope (do we ship `serve` in v1?)
+    Q5 — Streaming sibling vs included
+    Q6 — Error taxonomy: shape of :RemoteError
+    Q7 — Hermetic / sandbox interaction
+
+    SLICE-PLAN.md not yet created; waits for the design to
+    firm up. The arc gets the slice plan when at least Q8,
+    Q1, Q2, Q4 have been answered.
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - same shape as 003 / 004 / 005 / 006 (README/INDEX/DESIGN
+    [+ SLICE-PLAN later]) for symmetry across consumer-tier
+    crate arcs
+  - capture user's verbatim direction on the load-bearing
+    decisions
+  - DESIGN.md uses ✅ CONFIRMED / ❓ OPEN markers for each
+    question so the user can scan and react to one at a time
+  - inherit conventions from prior arcs (four questions
+    discipline, atomicity-and-signal, LLM out until delegate)
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-03
+    role: orientation
+    summary: |
+      Top-level pointer. What RemoteProgram is, the four-tier
+      model with no-clear-text-over-network invariant, what's
+      locked (EDN wire format), seven open questions for
+      one-at-a-time work, where it lives (proposed
+      wat-rs/crates/wat-remote/), reading order, cross-
+      references.
+
+  - file: DESIGN.md
+    captured: 2026-05-03
+    role: architecture (in-progress)
+    summary: |
+      The four-tier model articulated. Wire format Q3 LOCKED
+      (EDN). Seven open questions enumerated as separate
+      sections, each ready to receive its answer:
+      Q8 (consumer), Q1 (transport-as-type), Q2 (connection
+      model), Q4 (server side), Q5 (streaming), Q6 (errors),
+      Q7 (hermetic). Skeleton type signatures sketched for
+      illustration (subject to revision once Q1 is answered).
+
+# ─── State ───
+status: in-progress design
+# Bar to graduate to a real wat-rs arc:
+#   1. All seven open questions answered (Q1-Q8 with verdicts)
+#   2. SLICE-PLAN.md sized
+#   3. wat-fmt slice 1 has shipped (so the established
+#      crate-shipping pattern is real)
+#   4. User signals "let's start"
+
+# This arc is the LAST item from random-notes.txt. After it's
+# captured (whether locked-and-shipped or just sketched), the
+# random-notes.txt unburdening is complete:
+#   ✅ linter — 004-wat-lint
+#   ✅ formatter — 003-wat-fmt
+#   ✅ test coverage thing — 005-wat-cov
+#   📝 RemoteProgram<I,O> — 007-remote-program (this arc; in-progress)
