@@ -150,8 +150,11 @@ is morphological. Docstring-as-comment is positional.
 
 ## The substrate change
 
-**Three-arg form for `define` / `lambda` / `defmacro`** —
-backwards-compatible (existing 2-arg forms still valid):
+**Five forms get an optional docstring slot:** `define`,
+`lambda`, `defmacro`, `typealias`, `struct`, `enum`.
+
+Backwards-compatible (existing forms without docstrings still
+valid):
 
 ```scheme
 ;; Old shape (still valid; backwards-compat):
@@ -160,6 +163,64 @@ backwards-compatible (existing 2-arg forms still valid):
 ;; New shape (optional docstring between signature and body):
 (:wat::core::define (sig) "Doc string." body)
 ```
+
+**Function-shaped forms** (`define`, `lambda`, `defmacro`) —
+docstring goes between signature and body, per the canonical
+shape:
+
+```scheme
+(:wat::core::define
+  (:my-fn (x :T) -> :U)
+  "Compute the thing."
+  body)
+```
+
+**Type-shaped forms** (`typealias`, `struct`, `enum`) —
+docstring goes after the type's structural body. These forms
+don't have a "body" position separate from their structure;
+the docstring follows the structural definition:
+
+```scheme
+;; typealias with docstring (justifies the alias's existence)
+(:wat::core::typealias :MyMap
+  :HashMap<:Symbol, :i64>
+  "A map keyed on symbol; values are signed counters.
+   Used in the metrics layer; never construct directly —
+   call :wat::metrics::make-bucket instead.")
+
+;; struct with docstring (explains the type's domain)
+(:wat::core::struct :Position
+  ((file :i64)
+   (rank :i64))
+  "A position on a chess board. file ∈ [0, 7]; rank ∈ [0, 7].
+   Origin (0, 0) is a1; (7, 7) is h8.")
+
+;; enum with docstring (explains the variant set's purpose)
+(:wat::core::enum :ParseResult<:T>
+  ((Ok (value :T))
+   (Err (error :ParseError)))
+  "Parser output. Ok carries the parsed value; Err carries
+   diagnostics with location information.")
+```
+
+User direction (2026-05-03) on type-shaped forms:
+
+> *"i think typealiases can have a docstring... maybe not lint
+> compain on it.. but its there if the user wants?... we'll
+> make use of it to justify the type alias's existence...
+> [...] same for struct and enum... that's a good idea..."*
+
+**The asymmetry:** function-shaped forms (define / lambda /
+defmacro) get LINT-FLAGGED for missing docstrings (high signal —
+functions DO things; document what they do). Type-shaped forms
+(typealias / struct / enum) get the docstring SLOT but no lint
+pressure (lower signal — types NAME things; the name often
+suffices).
+
+Function-shaped forms: lint complains. Type-shaped forms: lint
+doesn't complain (but the user CAN document if they want; often
+the right move for type aliases that exist to "justify their
+existence").
 
 ### Concrete examples
 
@@ -379,6 +440,76 @@ minimal (single CSS file, no JS framework).
 Via wat-edn. Same data; ecosystem-friendly format. For
 non-wat tooling (e.g., a JS-based docs viewer).
 
+## Macros and docstring attribution
+
+User direction (2026-05-03):
+
+> *"doc strings on the macro, not the results of the macro...
+> we measure the surface forms.. if they inject new things..
+> so be it.. the user didn't express them.. the macro did and
+> the macro has a context string for it..."*
+
+**The rule:** docstrings live on macros (`:defmacro` definitions);
+expansions DON'T get separate docstrings. This is the surface-
+attribution rule from wat-cov (Q2) applied to documentation:
+count what the user wrote; the expansion is below the user-
+visible surface.
+
+**Concrete implications:**
+
+1. **Macro definition** carries the docstring:
+   ```scheme
+   (:wat::core::defmacro
+     (:my-macro (x :AST<T>) -> :AST<U>)
+     "Doc string. Explains what the macro expands to and how
+      to use it. The user reads THIS to understand the macro."
+     `(template ,x))
+   ```
+
+2. **Macro invocation** (`(my-macro x)`) — wat-doc treats
+   this as a call to `:my-macro`; the macro's docstring is
+   what describes the call's behavior. No separate
+   documentation needed at the invocation site beyond what
+   the macro's docstring already says.
+
+3. **Macro expansion** — the forms produced by the expansion
+   do NOT get separate documentation. If the macro injects
+   new defines / lambdas / variables, those are
+   "below-surface" — the user didn't write them; the macro
+   did. They inherit no docstring; they're not flagged by
+   the missing-docstring lint (because they weren't written
+   by the user).
+
+4. **If the macro injects a `define`** (e.g., a `defstruct`
+   macro that expands to a `define` for the struct's
+   constructor), the injected `define` doesn't need a
+   docstring. The macro's docstring is the canonical source
+   of truth for what's being defined and why.
+
+**Why this works:** the user reads the macro's docstring to
+understand the macro. The expansion is implementation; treating
+expanded forms as needing their own docstrings would force
+macro authors to either:
+- Inject docstring values into every expanded form (verbose
+  and redundant)
+- Get lint-flagged for every expansion (noisy and wrong)
+
+The surface-attribution rule sidesteps both. One docstring per
+macro; expansion is below the surface; lint scopes only over
+user-written forms.
+
+**Per the four questions:**
+- **Obvious?** ✅ — one docstring per macro; expansion is
+  internal
+- **Simple?** ✅ — same surface rule as wat-cov; one principle
+  applied across the toolkit
+- **Honest?** ✅ — macro author writes the docstring once;
+  it describes the user-visible contract; expansion is the
+  author's implementation
+- **Good UX?** ✅ — macro consumers see the macro's
+  documentation; macro authors aren't penalized for what
+  their expansions inject
+
 ## Cross-reference resolution
 
 When a docstring mentions an FQDN like `:wat::holon::Bind`, the
@@ -427,10 +558,31 @@ Exit code contract:
 
 New lint rule:
 
-### `documentation/missing-public-docstring`
+### `documentation/missing-docstring`
 
-**What it counts:** for each public form (`:define` / `:defmacro`
-/ `:typealias` / `:struct` / `:enum` / `:lambda`-as-let-binding),
+**Scope:** `:wat::core::define`, `:wat::core::lambda`,
+`:wat::core::defmacro` only. Type-shaped forms (`:typealias`,
+`:struct`, `:enum`) are EXCLUDED from required-docstring scope
+per the user's asymmetry direction (they CAN have docstrings
+but lint doesn't pressure for them).
+
+**No public/private distinction.** Per user direction
+(2026-05-03):
+
+> *"wat doesn't have public or private -- the user's need to
+> be dilligent - i'm not going to police them"*
+
+The lint applies to ALL function-shaped forms. The user runes
+the ones they don't want documented (internal helpers, thin
+wrappers, etc.). The discipline is the user's responsibility;
+the lint just makes the gap loud.
+
+(Note: the rule was originally proposed as
+`documentation/missing-public-docstring`; renamed to
+`documentation/missing-docstring` to reflect the scope —
+there's no "public" filter to apply.)
+
+**What it counts:** for each `:define` / `:lambda` / `:defmacro`,
 is a docstring present?
 
 **Default severity: L1-candidate.** Annoyingly visible per the
@@ -458,13 +610,12 @@ case the convention wants to surface).
 
 **Finding shape:**
 ```edn
-{:rule "documentation/missing-public-docstring"
+{:rule "documentation/missing-docstring"
  :severity :L1-candidate
  :file "wat/foo.wat"
  :line 12
  :context {:form-name ":wat::foo::bar"
-           :form-kind :define
-           :is-public true}
+           :form-kind :define}
  :message ":wat::foo::bar has no docstring"
  :hint "add a docstring as the second arg to define, OR
         suppress with `;; rune:documentation(<category>) — <reason>`"}

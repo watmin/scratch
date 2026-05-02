@@ -114,6 +114,45 @@ arc:
     chat (output format specifics, cross-reference mechanics,
     code-example syntax, multi-crate doc trees).
 
+  refinements-2026-05-03-second-pass: |
+    Three additional clarifications captured via C-refinement:
+
+    A. NO PUBLIC/PRIVATE DISTINCTION in wat. User direction:
+       "wat doesn't have public or private -- the user's need
+       to be dilligent - i'm not going to police them"
+
+       Implication: missing-docstring lint applies to ALL
+       function-shaped forms; renamed from
+       documentation/missing-public-docstring → documentation/
+       missing-docstring. User runes the ones they don't want
+       documented.
+
+    B. TYPE-SHAPED FORMS get docstring slots but NOT lint
+       pressure. typealias, struct, enum can carry docstrings
+       (useful to "justify the alias's existence" or explain
+       the type's domain); lint doesn't pressure for them
+       because types NAME things and the name often suffices.
+       Functions DO things and lint pressures for those.
+
+       Substrate change scope expanded: define, lambda, defmacro,
+       typealias, struct, enum all get the optional docstring
+       slot. Function-shaped forms have docstring between sig
+       and body; type-shaped forms have docstring after the
+       structural body.
+
+    C. MACRO DOCSTRINGS: defmacro carries the docstring;
+       expansions don't. User direction: "doc strings on the
+       macro, not the results of the macro... we measure the
+       surface forms.. if they inject new things.. so be it..
+       the user didn't express them.. the macro did and the
+       macro has a context string for it..."
+
+       This is the surface-attribution rule from wat-cov (Q2)
+       applied to documentation. One docstring per macro;
+       expansion is below the surface; lint scopes only over
+       user-written forms (macro-injected defines/lambdas
+       don't get flagged for missing docstrings).
+
 conventions:
   - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
   - same shape as 003-wat-fmt + 004-wat-lint + 005-wat-cov
