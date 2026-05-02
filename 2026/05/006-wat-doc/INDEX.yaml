@@ -1,0 +1,144 @@
+# Scratch arc — wat-doc: the canonical wat documentation generator
+#
+# Fourth foundation-tier crate after wat-fmt (003), wat-lint
+# (004), wat-cov (005). Triggered by the user's reflection that
+# the triad gets us to parity, and "maybe a documentation thing
+# is what's missing." The arc captures the load-bearing
+# decision: docstrings as first-class citizens in core forms.
+
+arc:
+  slug: wat-doc
+  date: 2026-05-03
+  triggered-by: |
+    User reflection on toolkit parity:
+
+    > "first.. fmt -> lint -> cov [...] getting those basically
+    > gets us into parity with every major programming lang?..
+    > we have package management via crates... we have code
+    > testing via cargo... i think i have my toolkit.. maybe a
+    > documentation thing is what's missing?"
+
+    Initial uncertainty about whether wat needs docs at all
+    (Lisp code is partly self-documenting), but landed firmly:
+
+    > "we could just add doc strings as first class citizens in
+    > our forms.... that's probably the honest thing to do?...."
+
+    The four-questions analysis confirmed:
+    - Obvious: docstring-IN-form is unambiguous; comment-above
+      requires "this attaches to next form" convention
+    - Simple: small substrate addition vs eliminating the
+      comment-attachment machinery wat-doc would otherwise need
+    - Honest: ✅✅ load-bearing — substrate guarantee vs tooling
+      convention; doc cannot drift from form because it lives
+      inside the form
+    - Good UX: matches Lisp paradigm (Clojure/Scheme/CL — the
+      family wat belongs to); morphology-over-position holds
+
+    User confirmed direction:
+
+    > "i totally agree with this... we'll update our core forms
+    > as we approach this... we'll have a linter flag when you
+    > didn't declare a doc string... this is an excellent arc
+    > to record"
+
+    Direction on sequencing:
+
+    > "i say A now - and then we'll refine via C"
+
+    (A = open the arc with locked decisions; C = refine the
+    details via chat afterward.)
+
+  outcome: |
+    wat-doc architecture captured pre-implementation. Four
+    load-bearing decisions locked:
+
+    1. Docstrings are FIRST-CLASS CITIZENS in substrate forms.
+       define / lambda / defmacro accept an optional docstring
+       (string literal) as the second arg, between signature
+       and body. Backwards-compatible (existing 2-arg forms
+       still valid). Type checker recognizes the position; no
+       runtime semantics impact.
+
+    2. wat-doc lives in wat-rs/crates/wat-doc/ per arc-013
+       self-contained crate pattern (matches wat-fmt / wat-lint
+       / wat-cov). Walks AST; extracts (form, signature,
+       docstring) triples; emits in four formats (EDN, Markdown,
+       HTML, JSON via wat-edn).
+
+    3. STYLE-RULES.md amendments needed: Rules 14 / 14b / 14c
+       updated to allow optional docstring slot; multi-line
+       docstrings via Rule 31 (atomic; preserved verbatim).
+
+    4. wat-lint integration: new rule
+       `documentation/missing-public-docstring` flags public
+       forms without docstrings. Severity tunable per project.
+
+    Four-slice plan sized; not opened. Refinements to come via
+    chat (output format specifics, cross-reference mechanics,
+    code-example syntax, multi-crate doc trees).
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - same shape as 003-wat-fmt + 004-wat-lint + 005-wat-cov
+    (README/INDEX/DESIGN/SLICE-PLAN) for symmetry across
+    foundation-tier crate arcs
+  - capture user's verbatim direction on the load-bearing
+    decisions (especially the docstring-as-first-class commit)
+  - inherit conventions from prior foundation arcs (four
+    questions, atomicity-and-signal, LLM out until delegate)
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-03
+    role: orientation
+    summary: |
+      Top-level pointer. What wat-doc is, the substrate change
+      (docstrings as first-class), the fourth corner of the
+      foundation tier (fmt + lint + cov + doc), where it lives,
+      reading order, conventions inherited, cross-references.
+
+  - file: DESIGN.md
+    captured: 2026-05-03
+    role: architecture
+    summary: |
+      Architecture: substrate change (3-arg form for
+      define/lambda/defmacro with optional docstring slot);
+      backwards-compatibility (2-arg form still valid);
+      type checker recognizes string-in-position-N as docstring
+      metadata; wat-doc extractor walks AST and pulls (form,
+      signature, docstring) triples; four output formats (EDN /
+      Markdown / HTML / JSON); cross-reference resolution
+      (FQDN mentions in docstrings link to their target);
+      wat-lint integration (missing-docstring rule); the four
+      questions applied throughout. STYLE-RULES.md amendment
+      cascade documented.
+
+  - file: SLICE-PLAN.md
+    captured: 2026-05-03
+    role: shipping plan
+    summary: |
+      Four slices: (1) substrate change in wat-rs core
+      (define/lambda/defmacro accept optional docstring) +
+      parser handling + STYLE-RULES.md amendment; (2) wat-doc
+      crate with extractor + EDN + Markdown output; (3) HTML
+      output (codox-style with cross-references + browseable
+      static site); (4) wat-lint integration (missing-docstring
+      rule) + JSON via wat-edn + polish.
+
+# ─── State ───
+status: open
+# Bar to open as a real wat-rs arc:
+#   1. wat-fmt slice 1 has shipped (so the established
+#      crate-shipping pattern is real and the parser exists)
+#   2. The substrate change for docstrings has been formally
+#      proposed in wat-rs/docs/proposals/ (058's discipline
+#      requires substrate changes go through proposal review)
+#   3. User signals "let's start"
+
+# Note: this is the LAST foundation-tier crate (fmt + lint +
+# cov + doc). After this lands, wat has functional parity with
+# every major language toolkit. The remaining items from
+# random-notes.txt (RemoteProgram<I,O> over mTLS) are
+# application-tier capabilities, not foundation-tier.
