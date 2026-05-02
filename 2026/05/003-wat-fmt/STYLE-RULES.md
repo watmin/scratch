@@ -236,51 +236,103 @@ These will get their own rules; Rule 14 covers `define` only.
   (:wat::core::+ x y))
 ```
 
-### Rule 16 ❓ — `cond` clauses each on their own line
+### Rule 16 ✅ — Conditional family is always vertical
 
+User locked 2026-05-02. Covers `:wat::core::if`, `:wat::core::cond`,
+`:wat::core::match`. **Audit confirmed the family is closed at
+these three** (no `:when`, `:unless`, `:case`, `:select`,
+`:do`, `:begin`, `:loop`, `:while`, `:for`, `:switch` — the
+substrate doesn't ship them).
+
+**Shape (shared across the family):**
+- Keyword alone on line 1
+- Principal expression (if the form has one) on its own line
+  indented 2
+- `-> :ret-type` on its own line indented 2
+- Branches / clauses / arms each on their own line indented 2
+- Always vertical — no fits-on-one-line exception
+
+**`:wat::core::if`** (the user's original example):
 ```scheme
-(:wat::core::cond -> :T
+(:wat::core::if
+  cond-expr
+  -> :ret-type
+  true-branch
+  false-branch)
+```
+
+**`:wat::core::cond`** (no principal expression; `-> :ret`
+slides up to position 1; clauses stack):
+```scheme
+(:wat::core::cond
+  -> :ret-type
   ((test-1) body-1)
   ((test-2) body-2)
   (:else default))
 ```
 
-Each clause aligned at the same indent (2 from the form's open
-paren). `:else` arm last.
+`:else` is required as the last clause per 058-036.
 
-### Rule 17 ❓ — `if` short-form on one line; otherwise three lines
-
+**`:wat::core::match`** (scrutinee in the principal-expression
+position; arms stack):
 ```scheme
-;; one-line if all three parts are short and total fits
-(:wat::core::if (:wat::core::> x 0) :positive :non-positive)
-
-;; otherwise three lines: test on head; then; else
-(:wat::core::if (:wat::core::> x 0)
-  (:wat::core::+ x (:wat::core::* x 2))
-  (:wat::core::- x 1))
+(:wat::core::match
+  scrutinee-expr
+  -> :ret-type
+  ((pattern-1) body-1)
+  ((pattern-2) body-2)
+  (_ default))
 ```
 
-### Rule 18 ❓ — `match` arms one per line
-
+**Sub-rule 16a — Clause body wrap (EQ1 → Option A).** When a
+clause's body doesn't fit on one line, wrap inside the clause
+indented 2 from the clause's open paren:
 ```scheme
-(:wat::core::match value
-  ((:pattern-1 x y) (use x y))
-  ((:pattern-2 z) (use z))
-  (_ default-case))
+((test-1)
+  (some-long-body
+    (with-subexpressions)))
+```
+Same "always indent 2 for nested structure" principle as
+Rule 14's body indent.
+
+**Sub-rule 16b — Single arm stays vertical (EQ2).** A
+`:wat::core::match` with one arm (or a `:wat::core::cond` with
+just `:else`) still uses the full vertical shape:
+```scheme
+(:wat::core::match
+  scrutinee
+  -> :ret-type
+  ((only-pattern) body))
 ```
 
-Each arm on its own line; pattern + body. If a body is long, body
-wraps below the arm with extra 2-space indent.
-
-### Rule 19 ❓ — `try` / `do` / sequences
-
-Bodies indented 2. Each sub-expr on its own line.
-
+**Sub-rule 16c — Degenerate `:cond` with only `:else` (EQ3).**
+Same shape as multi-clause `:cond`:
 ```scheme
-(:wat::core::try
-  (:user::risky-call x)
-  ((Err e) (:user::handle-error e)))
+(:wat::core::cond
+  -> :ret-type
+  (:else default))
 ```
+
+**Why this shape:**
+- Same "always vertical" discipline as Rule 14 (`:define`)
+- One unified rule covers all three forms — no special cases
+  per form
+- Diff-friendly: adding/removing a branch/clause/arm is a
+  one-line diff
+- Top-to-bottom reading; no horizontal scanning across branches
+- `-> :ret` is visually distinct, on its own line, in a
+  consistent position relative to the principal expression
+
+**NOT in this family** (different rules later):
+- `:wat::core::try` (retired but still hooked) — one-arg
+  propagation, no return type annotation, no branches
+- `:wat::core::Result/try` / `:wat::core::Option/try` — same
+  shape as the retired `:try` (one-arg propagation)
+- `:wat::core::and` / `:wat::core::or` / `:wat::core::not` —
+  boolean operators (separate "short binary form" rule when
+  we get to it)
+- `:wat::core::Result/expect` / `:wat::core::Option/expect` —
+  extraction with panic-on-failure
 
 ---
 
