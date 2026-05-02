@@ -314,13 +314,26 @@ User locked 2026-05-02 with explicit canonical examples covering
 - **always vertical** — no fits-on-one-line exception,
   regardless of arg count
 
-**0-arg / nullary (Q2 → option B; stays vertical):**
+**0-arg / nullary — signature collapses to one line:**
+```scheme
+(:wat::core::define
+  (:pi -> :f64)
+  3.14159)
+```
+
+**Amended 2026-05-02 during the `:lambda` round.** The original
+locked version had the arrow on its own line:
 ```scheme
 (:wat::core::define
   (:pi
     -> :f64)
   3.14159)
 ```
+That's now superseded. **The general principle:** when the args
+region is empty, the signature collapses to one line (name +
+arrow + return type all together). The args-on-their-own-lines
+shape only applies when there ARE args; once there's at least
+one arg, the form stays fully vertical.
 
 **1-arg (Q1 → always vertical, even at the cost of 5 lines for a
 1-line function):**
@@ -357,11 +370,103 @@ User locked 2026-05-02 with explicit canonical examples covering
 
 **Deferred (linked rules, not in scope for Rule 14 itself):**
 - `lambda` — Q3, user said "pretty much exactly yes" but want
-  to address it as its own rule
+  to address it as its own rule. **Now locked as Rule 14b.**
 - `defmacro` — Q4, same, "pretty much exactly yes"
-- `let*` (and related) — Q5, deferred
+- `let*` (and related) — Q5, deferred. **Now locked as Rule 13.**
 
 These will get their own rules; Rule 14 covers `define` only.
+
+---
+
+### Rule 14b ✅ — `:lambda` is always vertical
+
+User locked 2026-05-02. Same fundamental shape as Rule 14
+(`:define`) — vertical, each element on its own line — with
+ONE structural divergence: lambda has no name, so the **first
+arg takes the head position of the signature subform**
+(occupies the column where `:define`'s name would sit).
+
+**Shape:**
+- `:wat::core::lambda` keyword alone on line 1
+- Signature subform `(...)` indented 2
+- First arg at the head of signature (column +1 from
+  signature's `(`)
+- Subsequent args aligned at the same column as the first arg
+- `-> :RET` on own line, aligned with args, last in signature
+- Body indented 2, matching the signature's open paren depth
+- **Always vertical** — no fits-on-one-line exception
+
+**The single divergence from `:define`** (verified 2026-05-02):
+
+If `:lambda`'s signature `(` is at column N:
+- First arg at column N+1 (head position)
+- Subsequent args at column N+1 (aligned with first)
+- Arrow at column N+1 (aligned with args)
+
+Compare to `:define` at the same position:
+- Name at column N+1 (head position)
+- Args at column N+2 (indent 2 from signature `(`, below name)
+
+One column difference in arg indent. Standard Lisp "args align
+to first arg" idiom applied when the head is the first arg
+itself. Matches what's already in real wat code (e.g.,
+`wat/stream.wat:95-99`).
+
+**0-arg / nullary — signature collapses to one line:**
+```scheme
+(:wat::core::lambda
+  (-> :ret-type)
+  body)
+```
+
+Same general principle as `:define`'s 0-arg case (amended
+2026-05-02): when the args region is empty, the signature
+collapses to one line.
+
+**1-arg:**
+```scheme
+(:wat::core::lambda
+  ((only-arg :T)
+   -> :ret-type)
+  body)
+```
+
+**Multi-arg (the standard case):**
+```scheme
+(:wat::core::lambda
+  ((some-arg :some-type)
+   (next-arg :next-type)
+   -> :ret-type)
+  (...body...))
+```
+
+**Lambda as a value inside another form** (per Rule 13e —
+multi-line value composes naturally):
+```scheme
+(:wat::core::let*
+  (((handler :T)
+     (:wat::core::lambda
+       ((x :i64)
+        -> :i64)
+       (:wat::core::* x 2))))
+  body)
+```
+
+The lambda's `(` lands at +2 from the binding's `(` (per
+Rule 13b — Option B wrap), and the lambda then applies its
+own rule with that `(` as its column-0 baseline. Rules
+compose; nothing extra to specify.
+
+**Why this shape:**
+- Same "always vertical" discipline as Rules 13, 14, 16
+- Diff-friendly; one arg = one line
+- Composes cleanly inside let* bindings, function-call
+  argument positions, and as a return value
+- Matches existing wat-rs convention without modification
+
+**Deferred (linked rules):**
+- Rule 14c — `:defmacro` (still ❓ DRAFT; user said "pretty
+  much exactly yes" relative to `:define`)
 
 ### Rule 15 ❓ — `lambda` keeps params on head line; body indented 2
 
