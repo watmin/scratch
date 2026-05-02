@@ -10,15 +10,33 @@ of record. Just durable.
 
 ## Top-level meta-vision
 
-**`WAT-NETWORK.md`** — articulates the meta-vision the per-arc
-work is building toward: a network of mutually-authenticating
-wat-vms with cryptographic identity (mTLS), content-addressed
-programs (digest forms), and verifiable execution (signed eval
-forms). Each arc in `2026/05/003-008` is a piece of this larger
-architecture; the WAT-NETWORK doc is the whole.
+Two companion documents at scratch root articulate the
+work's meta-frame. Read them after orienting to the per-arc
+work; they tie the arcs together.
 
-Read it after orienting yourself to the per-arc work; it's the
-context that ties the arcs together.
+**`FUNCTIONS-ARE-REALITY.md`** — the WHY. The cosmological
+recognition that drives the language and substrate choices.
+Functions are the most primitive unit of reality (π is a
+function; the wave function is at the bottom; Einstein's
+equations at the top; DNA / memes / metabolism / WiFi / LLM
+inference all functions). Once you see this, Lisp becomes the
+only honest expressive language. The wat substrate is the
+user's expression of this recognition.
+
+**`WAT-NETWORK.md`** — the WHAT. The architectural target the
+per-arc work is building toward: a network of mutually-
+authenticating wat-vms with cryptographic identity (mTLS),
+content-addressed programs (digest forms), and verifiable
+execution (signed eval forms). Each arc in `2026/05/003-008`
+is a piece of this larger architecture; the WAT-NETWORK doc
+is the whole.
+
+Plus the per-arc bookworthy material in `2026/05/008-kwarg-macros/`
+(`FOR-THE-BOOK.md`, `SYMBIOSIS.md`) — the HOW. The
+collaboration shape; the four-questions discipline; the
+triple-checkmark moments; the work-as-it-happens.
+
+WHY → WHAT → HOW. Source material for a future BOOK chapter.
 
 ## A note for readers
 
