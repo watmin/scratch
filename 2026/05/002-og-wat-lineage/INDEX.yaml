@@ -127,17 +127,58 @@ notes:
       current wat); one impulse. Load-bearing for the BOOK and the
       DEFCON Speaker-Perspective answer.
 
+  - file: protocol-as-checksum.md
+    captured: 2026-05-02
+    beat: 5 (the user's original premise from 14 months ago, validated)
+    summary: |
+      The user's original premise from ~14 months ago: getting an
+      LLM to speak Lisp is trivial — compile their answers, reject
+      violations, retry. Both parties verify before proceeding.
+      Captured as the protocol-counterpart to latin-in-wat's
+      grammar-recognition. Names the four prerequisites that didn't
+      exist 14 months ago and now do (reliable model, substrate to
+      compile against, MCP retry protocol, shared substrate). Maps
+      "add a layer" to modern terms (system prompt < fine-tune <
+      LoRA < constrained decoding); constrained decoding is the
+      powerful one and drops syntactic protocol error to ZERO.
+      Bidirectional verification = the architectural insight. Two
+      hard problems flagged for later: lifting free English to
+      wat-english is lossy; cost-vs-value for trivial exchanges.
+
+  - file: language-form-gaps.md
+    captured: 2026-05-02
+    beat: 6 (audit of OG wat's coverage for common-tongue protocol)
+    summary: |
+      The user, post-protocol-as-checksum: "what forms of the
+      language are missing... i was confident i had a bulk of
+      common-tongue language requirements figured out but idk."
+      Audit organized by tier: 22 gaps named. Tier 1 (essential):
+      question form, negation, modality, propositional attitudes,
+      coordination, causation/condition, reference/anaphora,
+      comparison. Tier 2 (impoverished without): speech acts,
+      tense/aspect, evidentials, discourse markers, topic/focus,
+      repair, plurality flavors. Tier 3 (polish): mass/count,
+      definiteness gradient, performatives, defeasible generics,
+      etc. Architectural call: most gaps live at the surface
+      (macros in wat-english crate); only 1-2 need substrate
+      primitives (negation as first-class op, reference resolution
+      via the hologram). The user's original skeleton (SVO + roles
+      + traits + quantifiers + temporals) was correct for the
+      GRAMMATICAL spine; what was missing was the conversational
+      and epistemic primitives bundled on top.
+
 artifact-layout:
   arc-root: scratch/2026/05/002-og-wat-lineage/
   notes: |
-    Six files. Five describe the wat lineage; one captures the
-    deeper "latin in wat" recognition the user surfaced before
-    compaction.
-  total-files: 6
+    Eight files. Five describe the wat lineage; three capture
+    deeper recognitions surfaced after the DEFCON CFP submission
+    shipped (latin-in-wat, protocol-as-checksum, language-form-gaps).
+  total-files: 8
   scaffold-status: |
     No code scaffolds. Historical preservation + analysis +
-    follow-on shape + the morphology-over-position recognition.
-    The wat-english arc is sized but not opened.
+    follow-on shape + three deeper recognitions (grammar, protocol,
+    language coverage). The wat-english arc is sized but not
+    opened; with the gap audit it would expand from 5 to ~12 slices.
 
 # ─── State ───
 status: open  (historical-preservation status)
