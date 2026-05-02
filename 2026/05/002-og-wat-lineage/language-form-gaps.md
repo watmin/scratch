@@ -278,38 +278,203 @@ substrate change. Most can wait until a real consumer needs them.
 
 ## Architectural framing — substrate vs surface
 
-A useful way to read this audit:
+**Correction posted 2026-05-02 after reading proposal 058 + the
+actual `:wat::holon::*` surface.** An earlier draft of this
+file claimed two gaps needed substrate primitives (negation and
+reference resolution). Both were already shipped. Verified by
+inventorying `:wat::holon::*` in `wat-rs/src/check.rs` and
+reading proposal 058's accept/reject record.
 
-**Substrate primitives** (would require wat-rs work):
-- Negation as a first-class operation on HolonAST (probably
-  worth doing; lots of forms compose with it)
-- Reference resolution (already implied by the memory hologram
-  arc — this is the recall mechanism)
+### The substrate is intentionally minimal — and complete
 
-**Surface macros** (wat-english consumer crate, no substrate
-work):
-- Speech-act marking (`:Ask`, `:Request`, `:Promise`, etc.)
-- Modality and confidence (`:Modal :must|:might|:probably ...`)
-- Propositional attitudes (`:Attitude :holder :kind :stmt`)
-- Coordination operators (`:And`, `:Or`, `:But`, etc.)
-- Causation/condition operators (`:Because`, `:Provided`, etc.)
-- Comparison operators (`:More`, `:Most`, `:As`, `:Like`)
-- Tense/aspect markers (axes on Statement)
-- Evidentials (axis on Statement)
-- Discourse markers (axis on Statement)
-- Topic/focus marking (axes on Statement)
-- Repair operations (protocol-level moves)
-- Plurality flavors (axis on quantifier forms)
+Proposal 058 (in `holon-lab-trading/docs/proposals/2026/04/058-ast-algebra-surface/`)
+is the wat language spec — it documents what's IN and what's
+OUT of the substrate, and why. Its discipline is unambiguous:
+*every form must have cited production use OR demonstrate a new
+pattern; speculative forms get REJECTED.* The substrate ships 6
+algebra-core primitives, ~17 stdlib forms, ~10 language-core
+forms; many proposed additions were rejected (Cleanup, Flip,
+Concurrent, Then, Chain, Unbind, Resonance, ConditionalBind,
+Linear) because they were redundant or speculative.
 
-**The good news:** most of the gap is at the SURFACE layer. The
-substrate already has Bundle, Bind, role axes, and the
-hypersphere. Adding speech-act / modality / evidential / etc. is
-"add another role atom and another macro." No substrate
-primitives needed for the bulk of Tier 1 and Tier 2.
+This means **the bar for adding ANY new substrate form is
+production use**. The wat-english consumer crate is the future
+production user; until it ships and exhibits a recurring
+substrate-shaped need, no new substrate forms get proposed.
+
+Per 058's bar: **zero substrate work needed for any of the 22
+gaps in this audit.** Every Tier 1, Tier 2, and Tier 3 form
+lowers to existing primitives via macros in the wat-english
+consumer crate.
+
+### Substrate primitives the wat-english crate composes from
+
+Inventoried from `wat-rs/src/check.rs` and `wat/holon/*`:
+
+**Composition (the spine):**
+- `:wat::holon::Atom` — typed leaf (any serializable T)
+- `:wat::holon::Bind` — role-filler binding (the case marking)
+- `:wat::holon::Bundle` — commutative composition
+- `:wat::holon::Permute` — dimensional shift (positional encoding)
+- `:wat::holon::HolonAST` — closed-under-itself form
+
+**Algebra (negation, projection, scaling):**
+- `:wat::holon::Blend` — `(Blend a b w1 w2)` two-weight linear combination
+- `:wat::holon::Subtract` — `(Subtract x y)` = `(Blend x y 1 -1)` — algebraic negation
+- `:wat::holon::Reject` — `(Reject x y)` = component of x orthogonal to y — Gram-Schmidt; "X but not Y"
+- `:wat::holon::Project` — projection onto a subspace
+- `:wat::holon::Amplify` — `(Amplify x y s)` scaled emphasis
+
+**Recall and reference (the hologram):**
+- `:wat::holon::Hologram` + `/make` `/put` `/get` `/find`
+  `/remove` `/len` `/capacity` — therm-routed cosine recall;
+  `find` returns the highest-cosine candidate that passes a
+  user-supplied filter
+- `:wat::holon::coincident` — predicate (cosine ≥ coincident floor)
+- `:wat::holon::presence` — predicate (cosine ≥ presence floor)
+- `:wat::holon::filter-coincident` `/filter-present` — opinionated
+  filter factories for Hologram/find
+- `:wat::holon::cosine` `/dot` — raw similarity
+- `:wat::holon::simhash` — hash-based similarity routing
+
+**Continuous-value encoding (modality, confidence, time):**
+- `:wat::holon::Thermometer` `/therm` — magnitude-graded encoding
+- `:wat::holon::Log` `/Circular` `/ReciprocalLog` — scale variants
+- `:wat::holon::Sequential` — bind-chain with positional Permute
+
+**Sequencing (discourse, n-gram structure):**
+- `:wat::holon::Bigram` `/Trigram` `/Ngram` — positional sequences
+
+**Memory/learning (for the more sophisticated forms):**
+- `:wat::holon::Engram` `/EngramLibrary` — learned-pattern matching
+- `:wat::holon::OnlineSubspace` — CCIPCA streaming subspace
+- `:wat::holon::Reckoner` — curve-learning over conviction
+
+### The "needed substrate primitives" call was wrong
+
+The earlier draft claimed:
+- *"Negation as a first-class operation on HolonAST"* — **wrong**.
+  058 explicitly DECOMPOSED negation into Subtract / Blend with
+  negative weight / Reject. Per FOUNDATION's history,
+  Subtract "is one of the three original Negate modes." Single-arg
+  elementwise `Flip` was REJECTED (058-020) for lack of cited use.
+  *Every flavor of statement-level negation lowers to one of
+  Reject (orthogonal exclusion), Subtract (algebraic difference),
+  or a `:negation` axis Bind on the Statement bundle.*
+- *"Reference resolution requires substrate work"* — **wrong**.
+  058's Cleanup REJECTION (058-025) encodes the principle:
+  *"AST-primary framing dissolves Cleanup; retrieval is presence
+  measurement (cosine + noise floor), not argmax-over-codebook."*
+  Hologram + presence/coincident IS reference resolution. "The
+  previous one" lowers to a Hologram/find call against an
+  encoded probe. The substrate already has the operation;
+  wat-english just needs the macro that constructs the probe.
+
+### The corrected call
+
+**Every gap in Tier 1, 2, and 3 lives at the surface layer.**
+The wat-english consumer crate is purely macros over existing
+substrate primitives. No new substrate forms proposed; 058's
+discipline holds. The substrate is COMPLETE for this work.
 
 This is consistent with the architectural call OG wat made
 without realizing it: the trait system was the right shape, but
-it needed many more traits than the original 8.
+it needed many more traits than the original 8. The traits live
+in the consumer crate; the substrate provides the compositional
+machinery.
+
+### Concrete lowering shapes — three Tier 1 examples
+
+To make the macro pattern concrete, three worked expansions:
+
+**`(:wat::english::Ask :who :role-subject (Statement ? chases toy))`**
+lowers to:
+```
+(:wat::holon::Bundle
+  (:wat::core::vec :wat::holon::HolonAST
+    (:wat::holon::Bind :speech-act-axis (:wat::holon::Atom :question))
+    (:wat::holon::Bind :focus-axis      (:wat::holon::Atom :role-subject))
+    ;; the inner Statement, with the asked role bound to a
+    ;; placeholder Atom (resolved by the answerer)
+    (:wat::holon::Bind :payload-axis    <inner-Statement-AST>)))
+```
+The substrate sees a Bundle with three role-marked Binds. The
+LLM (or the user) replies by lowering its answer to a Bundle
+where `:role-subject` carries a real Atom, and the receiver
+verifies via `coincident?` that the answer's `:focus-axis`
+matches the question's.
+
+**`(:wat::english::Probably 0.7 stmt)`** lowers to:
+```
+(:wat::holon::Bundle
+  (:wat::core::vec :wat::holon::HolonAST
+    (:wat::holon::Bind :modality-axis    (:wat::holon::Atom :probably))
+    (:wat::holon::Bind :confidence-axis  (:wat::holon::Thermometer 0.7 0.0 1.0))
+    (:wat::holon::Bind :payload-axis     <inner-Statement-AST>)))
+```
+Confidence rides on a Thermometer (continuous magnitude). Two
+"probably" statements with different confidence levels sit at
+slightly different points on the hypersphere — recall by cosine
+naturally clusters them by confidence proximity.
+
+**`(:wat::english::Ref :prev)`** is not a Bundle but a SUBSTRATE
+CALL that resolves at evaluation time:
+```
+(:wat::holon::Hologram/find
+  <conversation-store>
+  <previous-statement-probe>
+  (:wat::holon::filter-coincident <dim>))
+```
+The wat-english crate maintains a conversation-scoped Hologram
+keyed on each statement's encoded form; `:prev` resolves to a
+probe constructed from the most-recently-emitted statement's
+key. The user / LLM never sees the Hologram call; they write
+`(:Ref :prev)` and the macro expands at compile time (or eval
+time, depending on whether `:prev` is statically resolvable).
+
+These three patterns generalize: every Tier 1+2 form is either
+(a) a Bundle with one or more axis Binds + a payload, or (b) a
+Hologram-call shape that resolves a reference at eval time. No
+exotic primitives needed.
+
+### Slice sequencing for wat-english
+
+Within Tier 1 (8 gaps), a slice order that respects 058's "cited
+use" discipline:
+
+1. **Statement + axis discipline** — establish the convention
+   that every wat-english form is `Bundle(payload + axis-Binds)`.
+   Ship the `:wat::english::Statement` macro from
+   `english-surface-arc.md` slice 2 first; everything else
+   conforms to its shape.
+2. **Modality + confidence** — earliest LLM payoff. Lets the
+   LLM mark uncertainty without prose hedging. Lowers cleanly
+   via Thermometer.
+3. **Negation** — `(:Not stmt)` as a sentence-scope negation
+   via `:negation` axis Bind. Constituent-scope negation is a
+   later refinement.
+4. **Question form** — interactive turn-taking. The
+   payload + `:focus-axis` Bind shape demonstrated above.
+5. **Propositional attitudes** — `(:IThink stmt)`,
+   `(:YouSaid stmt)`, `(:LiteratureSays stmt)`. Same axis-Bind
+   shape with `:attitude-axis` and `:holder-axis`.
+6. **Coordination operators** — `(:And ...)`, `(:Or ...)`,
+   `(:But ...)`. The axis-Bind shape carries the connective.
+7. **Causation/condition operators** — `(:Because ...)`,
+   `(:Provided ...)`, `(:Despite ...)`, etc.
+8. **Reference / anaphora** — Hologram/find-backed `(:Ref ...)`
+   variants. Comes last in Tier 1 because it depends on the
+   wat-english crate maintaining a conversation Hologram, which
+   is more substantive infrastructure than the previous slices.
+9. **Comparison** — `(:More ...)`, `(:Most ...)`, `(:As ...)`.
+   Could use the DEFERRED 058-014 Analogy if/when that
+   graduates from DEFERRED, but doesn't need to.
+
+Tier 2 slices land in the natural order they're needed: speech
+acts (10), tense/aspect (11), evidentials (12), discourse markers
+(13), topic/focus (14), repair (15), plurality flavors (16).
+Total: ~16 slices for Tier 1 + Tier 2, building on the existing
+5-slice plan in `english-surface-arc.md`.
 
 ## How the user was right
 
