@@ -320,6 +320,343 @@ been distributed-from-the-start because it has been
 constraint-honoring-from-the-start; the constraints are the
 constraints distribution requires.
 
+## Deployment + identity overlay — composes with cloud-native infrastructure
+
+User direction (2026-05-03, after the rhythm framing):
+
+> *"on the wat network... the mtls part... it natively slots into
+> k8s with istio... spire and spiffie.. ya?...*
+>
+> *the side cars bounce connections based on cert identity....
+> who can do what... and the queries carried on these signed
+> connections.. they can be signed too... the caller is trusted
+> and the payload is trusted...*
+>
+> *callers in differnet envs.... maybe some k8s box is in aws
+> another in gcp.. and another host is in someone's home lab..
+> if the home lab does a signed connection with a signed
+> payload those in-cloud-apps could reach into their local
+> cloud resources with their cloud native identities (some
+> container in aws querying some ddb table and serving the
+> result, s3, efs, rds, lambda func call - whatever).. the
+> mtls fronted connection is a way for a completely independent
+> identity system to overlay on all existing identities... this
+> is an abstraction layer..*
+>
+> *when we shift to 'this :some-identity is allowed to query
+> :some-resource with :some-scope' to being an edn delivery
+> mechanism... the who and where dissolve.. all that matters
+> is the contract...*
+>
+> *this is what remote programs deliver... cloud agnostic data
+> relaying... do you see it?...*
+>
+> *there's no reason why a wat program couldn't implement an
+> http interface that sits behind some tls termination side
+> car who does authn+authz and then the application can do
+> signed payload validation... yea?..."*
+
+This is the deployment story made concrete + a load-bearing
+insight about how the wat network composes with existing
+cloud-native identity systems.
+
+### The wat network slots natively into k8s + istio + SPIFFE/SPIRE
+
+The mTLS membership protocol of the wat network isn't a custom
+thing the user has to build infrastructure for. It's already
+the standard cloud-native identity pattern:
+
+| Existing infra | Role |
+|---|---|
+| **k8s** | Container orchestration; service mesh substrate |
+| **istio** (or Linkerd / Consul Connect) | Service mesh; sidecar proxies for mTLS termination + identity-based routing |
+| **SPIFFE / SPIRE** | Workload identity; per-workload SVIDs (cert + key); rotation; attestation |
+| **Sidecar pattern** | TLS termination + authn + authz at the network edge; application receives plain HTTP locally |
+
+A wat-vm deployed in k8s gets its identity via SPIRE; its
+connections are mTLS-wrapped by the istio sidecar; the istio
+sidecar enforces "who can talk to who" at the network layer
+based on cert identity. **The wat network's mTLS membership
+protocol IS what istio + SPIFFE already do.**
+
+This means deploying the wat network in production:
+- Uses existing k8s + istio + SPIFFE infrastructure
+- Doesn't require rebuilding the network stack
+- Doesn't require operators to learn a new mTLS system
+- Familiar to anyone who's deployed a service mesh
+
+The wat-specific value lives at the APPLICATION layer:
+- Signed payloads (the substrate's `signed eval` forms)
+- Content-addressed programs (the substrate's `digest` forms)
+- Typed contracts (the substrate's type system)
+- The Q-channel wire-IS-Result-type discipline
+
+### The dual-layer identity model
+
+When you compose istio's network-layer mTLS with wat's
+application-layer signed payloads, you get **two independent
+layers of cryptographic verification**:
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                 NETWORK LAYER (istio sidecar)              │
+│                                                            │
+│  - mTLS handshake                                          │
+│  - Cert identity verification (SPIFFE SVID)                │
+│  - Network-level authz (who can talk to who)               │
+│  - TLS termination                                         │
+│                                                            │
+│  Application receives PLAIN HTTP locally with verified     │
+│  identity headers from the sidecar                         │
+└─────────────────────────┬──────────────────────────────────┘
+                          │
+                          ▼
+┌────────────────────────────────────────────────────────────┐
+│              APPLICATION LAYER (wat-vm program)            │
+│                                                            │
+│  - Signed payload validation (signature against trusted    │
+│    keys via :wat::core::signed-eval forms)                 │
+│  - Application-level authz (does this signed identity      │
+│    have permission to ask THIS specific query?)            │
+│  - Content-addressed program verification (digest match)   │
+│  - Typed contract enforcement (Result<T, E> wire shape)    │
+└────────────────────────────────────────────────────────────┘
+```
+
+**Two layers; two independent cryptographic verifications.**
+A spoofer would have to break BOTH layers to forge a request.
+Network-layer compromise doesn't invalidate application-layer
+signature verification. Application-layer signature alone
+doesn't get past the network-layer mTLS.
+
+### The identity-overlay insight
+
+This is the load-bearing observation:
+
+**The wat-network identity system is COMPLETELY INDEPENDENT
+of cloud identity systems. It OVERLAYS on top of them.**
+
+Each wat-vm node:
+- Has its OWN cryptographic identity (cert-A, cert-B, etc.)
+  for wat-network membership
+- ALSO HAS its local cloud identity (AWS IAM role; GCP service
+  account; Azure managed identity; or no cloud identity at all
+  for a home lab box)
+
+When wat-vm-A (deployed in AWS, IAM role X) calls wat-vm-B
+(deployed in GCP, service account Y) via RemoteProgram:
+- mTLS handshake authenticates A as cert-A and B as cert-B
+  (wat-network layer)
+- The signed payload carries provenance: "cert-A is asking
+  for this query"
+- wat-vm-B receives the call; verifies; if it decides to
+  service the request, it uses ITS LOCAL GCP IDENTITY
+  (service account Y) to access GCP resources (a Cloud
+  Storage bucket, a Spanner table, a BigQuery dataset)
+- The result is signed by cert-B and returned to wat-vm-A
+- wat-vm-A verifies B's signature; uses the result; perhaps
+  uses ITS LOCAL AWS IDENTITY (IAM role X) to write the
+  result to an S3 bucket
+
+**Cloud identities are local resource access. Wat-network
+identity is the common language between nodes. They compose.**
+
+### The cross-environment scenario (verbatim from user)
+
+> *"callers in differnet envs.... maybe some k8s box is in aws
+> another in gcp.. and another host is in someone's home lab..
+> if the home lab does a signed connection with a signed
+> payload those in-cloud-apps could reach into their local
+> cloud resources with their cloud native identities..."*
+
+A concrete scenario:
+
+```
+┌─────────────────────────┐         ┌─────────────────────────┐
+│  Home lab box           │         │  AWS k8s pod            │
+│                         │ mTLS    │                         │
+│  Identity: cert-HL      ├────────►│  Identity: cert-AWS     │
+│  No cloud identity      │ (SPIFFE │  IAM role: app-data-r/o │
+│                         │  + ist.)│                         │
+└─────────────────────────┘         └─────────┬───────────────┘
+                                              │
+                                              │ AWS-native
+                                              │ (boto3 / SDK
+                                              │  via IAM)
+                                              ▼
+                                    ┌─────────────────────────┐
+                                    │  AWS resources          │
+                                    │  - DynamoDB             │
+                                    │  - S3                   │
+                                    │  - RDS                  │
+                                    │  - Lambda               │
+                                    │  - EFS                  │
+                                    └─────────────────────────┘
+```
+
+Home lab box has NO AWS IAM role; CAN'T directly access AWS
+resources. AWS k8s pod HAS the IAM role; CAN access AWS
+resources. The wat-network connection lets the home lab box
+ASK the AWS pod for a typed result derived from AWS resources.
+The signed payload + signed connection prove the home lab is
+authorized to make the ASK; the AWS pod's local IAM proves it's
+authorized to make the AWS API call.
+
+**Same pattern works across any cloud combination.** GCP →
+AWS; Azure → GCP; home lab → any cloud; cloud → home lab; etc.
+
+### The framing shift — from configuration to delivery
+
+The user's articulation of what this enables:
+
+> *"when we shift to 'this :some-identity is allowed to query
+> :some-resource with :some-scope' to being an edn delivery
+> mechanism... the who and where dissolve.. all that matters
+> is the contract..."*
+
+The traditional cross-cloud identity story is a CONFIGURATION
+problem:
+- Set up cross-account IAM roles in AWS
+- Set up workload identity federation in GCP
+- Configure managed identities in Azure
+- Configure trust between clouds
+- Pray it all works
+
+The wat-network identity story is a DELIVERY problem:
+- Wat-vm-A signs an EDN payload: "I want this typed result"
+- Wat-vm-B receives the payload; verifies the signature;
+  decides whether to service it
+- That's the entire question
+
+**Who is asking** (cert-A)
+**What they want** (the typed query)
+**Where they're asking from** (anywhere — home lab; AWS; GCP)
+— **all dissolve into the contract.** The authz decision is:
+"do I trust this signed identity to ask for this specific
+contract?" Nothing about cross-cloud configuration; nothing
+about IAM federation; nothing about trust documents.
+
+Just: signed identity + typed contract + authz decision.
+
+### The implementation pattern (verbatim from user)
+
+> *"there's no reason why a wat program couldn't implement an
+> http interface that sits behind some tls termination side
+> car who does authn+authz and then the application can do
+> signed payload validation... yea?..."*
+
+YES. The deployment shape:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  k8s pod                                                    │
+│                                                             │
+│  ┌─────────────────────────┐  ┌────────────────────────┐    │
+│  │  istio sidecar (envoy)  │  │  wat-vm container      │    │
+│  │                         │  │                        │    │
+│  │  - mTLS termination     │  │  - HTTP listener       │    │
+│  │  - SPIFFE SVID identity │  │    (plain HTTP from    │    │
+│  │  - L4/L7 authz          ├──┤     sidecar locally)   │    │
+│  │  - rate limiting        │  │  - Signed payload      │    │
+│  │  - tracing              │  │    verification        │    │
+│  │                         │  │  - Application authz   │    │
+│  └─────────────────────────┘  │  - Local resource      │    │
+│                               │    access (via cloud   │    │
+│                               │    IAM if applicable)  │    │
+│                               └────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+The sidecar handles ALL the network-layer crypto. The wat-vm
+sees plain HTTP locally with verified identity headers. The
+wat-vm does its OWN application-layer crypto (signed payload
+verification). Two layers; clean separation.
+
+This is **the standard k8s + istio service deployment pattern**
+with wat-vm as the application. Operators already know this
+pattern. The wat-specific value is in the application's
+signed-payload + typed-contract logic.
+
+### Cloud-agnostic data relaying — what RemoteProgram delivers
+
+User: *"this is what remote programs deliver... cloud agnostic
+data relaying..."*
+
+Articulated:
+
+**RemoteProgram is the substrate-level primitive for
+cloud-agnostic data relaying.** It lets wat-network nodes
+deployed anywhere (any cloud; no cloud; mixed environments)
+exchange typed data with cryptographic provenance. Each node
+uses its LOCAL cloud-native identity to access its LOCAL
+resources; the wat-network identity is the common language
+between nodes.
+
+This dissolves a class of problems that traditionally requires
+substantial cross-cloud infrastructure work:
+- **Multi-cloud data plane**: wat-vms in AWS + GCP + Azure +
+  home lab all participate in the same wat network; data
+  flows between them via typed RemoteProgram calls
+- **Hybrid cloud**: on-prem wat-vms + cloud wat-vms speak the
+  same protocol; on-prem can fetch from cloud; cloud can
+  fetch from on-prem
+- **Cross-account / cross-org**: separate AWS accounts (or
+  separate organizations entirely) can be wat-network peers
+  without setting up IAM federation; the wat-network identity
+  layer is independent of AWS-internal trust
+- **Edge → cloud → edge**: edge devices with limited cloud
+  identity can participate in the wat network; sign their
+  payloads; trust the responses they get back
+
+This isn't theoretical. The infrastructure pieces all exist:
+- k8s for compute
+- istio (or Linkerd / Consul) for service mesh + mTLS
+- SPIFFE / SPIRE for workload identity
+- Cloud-native IAM for local resource access
+- The wat substrate for typed payloads + signed eval +
+  digest-addressed programs + RemoteProgram protocol
+
+**The wat network is what assembles them into a cloud-agnostic
+data plane.**
+
+### Per the four questions on the deployment + identity-overlay framing
+
+- **Obvious?** ✅ — the deployment pattern is k8s-native;
+  the identity-overlay concept is conceptually simple
+  (wat-network identity is independent of cloud identity;
+  they compose)
+- **Simple?** ✅ — uses existing infrastructure (istio,
+  SPIFFE, k8s) at the network layer; wat adds value at the
+  application layer; no new infrastructure to invent
+- **Honest?** ✅✅✅ — **fifth triple-checkmark of the
+  design session** — TWO LAYERS of cryptographic
+  verification (network mTLS + application-layer signed
+  payload) compose to make spoofing structurally impossible;
+  wat-network identity composes with cloud identities
+  without conflict (overlay, not replacement); the contract
+  IS the truth (who/where dissolve; only the typed contract
+  matters)
+- **Good UX?** ✅✅ — operators use familiar k8s tooling;
+  developers use typed APIs; cross-cloud / hybrid /
+  multi-environment scenarios collapse to "make a
+  RemoteProgram call"
+
+The fifth triple-checkmark on Honest is structural: the dual-
+layer crypto (mTLS at network; signature at payload) means
+the system literally cannot be spoofed at any layer. Identity
+composition is structural — wat-network identity overlays cloud
+identities without impedance mismatch. **The honesty isn't
+aspirational; it's enforced by the cryptographic substrate at
+both layers + the type system carrying the contract.**
+
+This is the same shape as the other four triple-checkmarks
+this session: the constraint lives in the type system + the
+cryptographic primitives, not in convention. You cannot
+participate without dual-layer identity proof; you cannot
+make a request without a signed typed payload; you cannot
+spoof a node without breaking BOTH the network and
+application crypto.
+
 ## The architecture
 
 ```
