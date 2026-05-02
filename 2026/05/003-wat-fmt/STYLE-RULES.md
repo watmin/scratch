@@ -465,15 +465,71 @@ compose; nothing extra to specify.
 - Matches existing wat-rs convention without modification
 
 **Deferred (linked rules):**
-- Rule 14c — `:defmacro` (still ❓ DRAFT; user said "pretty
-  much exactly yes" relative to `:define`)
+- Rule 14c — `:defmacro` — **now locked.** See below.
 
-### Rule 15 ❓ — `lambda` keeps params on head line; body indented 2
+---
 
+### Rule 14c ✅ — `:defmacro` is structurally identical to `:define`
+
+User locked 2026-05-02. Substrate verified: `:defmacro` uses
+the same signature shape as `:define` (real example in
+`wat/holon/Reject.wat`).
+
+**Rule 14c IS Rule 14 with `:wat::core::defmacro` substituted
+for `:wat::core::define` everywhere.** No divergences.
+
+The three considered-and-dismissed "divergences":
+
+1. **Args typed `:AST<T>` instead of `:T`.** Implementation
+   detail of macros (they receive ASTs); doesn't change the
+   signature shape. Rule 14 doesn't constrain what the type
+   expression IS, just where it sits in the signature.
+2. **Body is typically a quasi-quoted template** (backtick +
+   `,x` unquotes). Body convention, not a signature one. The
+   defmacro rule doesn't constrain the body's internal
+   structure — that's whatever the body's form requires
+   (template syntax has its own formatting story when we get
+   to Rule 30 / quasiquote).
+3. **Macros usually have at least one arg.** A 0-arg macro is
+   theoretically possible (always expands to the same form
+   regardless of context); shape would be the collapsed
+   nullary form per Rule 14's amended 0-arg case.
+
+**0-arg (collapsed signature, per Rule 14's amendment):**
 ```scheme
-(:wat::core::lambda ((x :T) (y :U) -> :V)
-  (:wat::core::+ x y))
+(:wat::core::defmacro
+  (:user::always-bar -> :AST<:wat::holon::HolonAST>)
+  `(:wat::holon::Atom "bar"))
 ```
+
+**1-arg:**
+```scheme
+(:wat::core::defmacro
+  (:user::wrap
+    (x :AST<wat::holon::HolonAST>)
+    -> :AST<wat::holon::HolonAST>)
+  `(:wat::holon::Bundle (:wat::core::vec :HolonAST ,x)))
+```
+
+**Multi-arg (the canonical Reject.wat example, verbatim):**
+```scheme
+(:wat::core::defmacro
+  (:wat::holon::Reject
+    (x :AST<wat::holon::HolonAST>)
+    (y :AST<wat::holon::HolonAST>)
+    -> :AST<wat::holon::HolonAST>)
+  `(:wat::holon::Blend
+     ,x
+     ,y
+     1.0
+     (:wat::core::- 0.0
+       (:wat::core::/ (:wat::holon::dot ,x ,y)
+                           (:wat::holon::dot ,y ,y)))))
+```
+
+The body's structure (quasiquote, unquote, nested forms, etc.)
+follows whatever rule applies to its constituent forms. Rule
+14c only specifies the signature + outer body indent.
 
 ### Rule 16 ✅ — Conditional family is always vertical
 
