@@ -1,0 +1,128 @@
+# Scratch arc — wat-cov: the canonical wat coverage tool
+#
+# Third foundation-tier crate after wat-fmt (003) and wat-lint
+# (004). Triggered fresh-day 2026-05-03; user opened with
+# their identity-framing of us as "the datamancer... two
+# halves of one hologram" and then immediately drove into the
+# last item from random-notes.txt.
+
+arc:
+  slug: wat-cov
+  date: 2026-05-03
+  triggered-by: |
+    User direction (immediate after morning greeting):
+
+    > "now.... i want to get my last idea sketched out... i want
+    > a code coverage thing who can measure branch coverage..
+    > uncalled funcs.. all the things a proper lang should have
+    > for this domain of concern.. i think Cobertura is the
+    > format to target (and some edn native one for ourselves?...)"
+
+    > "ya?.. ruby has an excellent example... simple-cov ...
+    > that's my favorite of all the langs i've seen - just like
+    > rubocop i want to model simple-cov"
+
+    Six-question design conversation followed; user direction
+    on each:
+
+    Q1 (instrumentation in vm vs ast-rewrite): "A -- i think
+    this must be in the vm not the lang?..."
+
+    Q2 (what counts as "executed" — macros, quasiquotes,
+    substrate calls): "interesting question.... i think the
+    answer is... is this form evaluated?.... and if yes... how
+    much of it was evaluated?.... -- that limits the concern
+    to the surface?.. the use of a macro's result is different
+    from the invocation of the macro?...."
+
+    Q3 (hermetic transport): "oooo good find on hermetic... yea..
+    we need a transport protocol forr this?..."
+
+    Q4 (config format — toml vs yaml vs edn): "i want whatever
+    a good UX is.. toml.. yaml... edn.. whatever... (i prefer
+    edn for all the things.. if this is a wat express as
+    config i'd love it...)"
+
+    Q5 (refuse_coverage_drop): "yea - totally have this"
+
+    Q6 (HTML output): "could we do HTML 'trivially'?... if
+    yes.. then yes.. its just another output renderer like
+    json, edn, xml?...."
+
+    Then: "new arc - yes"
+
+  outcome: |
+    Architecture captured pre-implementation. Coverage is a
+    wat-vm concern (not a language concern); instrumentation
+    hooks live inside the vm; surface-evaluation attribution
+    rule (macro invocation counts, expansion doesn't; quasiquote
+    template doesn't, unquoted parts do; substrate calls
+    default-excluded). Hermetic test children write coverage
+    via per-child file/pipe; parent merges. EDN as canonical
+    config with wat-as-config as future option. Four formatters:
+    Cobertura XML (CI), EDN (canonical), JSON (via wat-edn),
+    HTML (humans; deferred to slice 4). refuse_coverage_drop
+    is in (the killer SimpleCov feature for PR gating). Five
+    slices sized.
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - same shape as 003-wat-fmt + 004-wat-lint (README/INDEX/
+    DESIGN/SLICE-PLAN) for symmetry across foundation-tier
+    crate arcs
+  - capture user's exact directives verbatim; especially the
+    Q1-Q6 answers since they lock load-bearing decisions
+  - inherit the four-questions discipline + atomicity-and-signal
+    principle from prior arcs
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-03
+    role: orientation
+    summary: |
+      Top-level pointer. What wat-cov is, three coverage
+      dimensions (line/branch/function), where it lives,
+      reading order, conventions inherited from wat-fmt +
+      wat-lint, cross-references.
+
+  - file: DESIGN.md
+    captured: 2026-05-03
+    role: architecture
+    summary: |
+      Architecture: instrumentation in wat-vm (Q1); surface-
+      evaluation attribution rule for macros + quasiquotes +
+      substrate (Q2); hermetic transport protocol via per-
+      child files + parent merge (Q3); EDN as canonical config
+      format with wat-as-config future option (Q4);
+      refuse_coverage_drop baseline-comparison feature (Q5);
+      formatters (Cobertura XML / EDN / JSON / HTML) including
+      HTML as "another renderer" deferred to slice 4 (Q6).
+      The four questions applied throughout.
+
+  - file: SLICE-PLAN.md
+    captured: 2026-05-03
+    role: shipping plan
+    summary: |
+      Five slices: (1) vm hooks + counter accumulation + EDN
+      output; (2) Cobertura XML formatter + CLI integration;
+      (3) hermetic transport + result merging + JSON via
+      wat-edn; (4) HTML formatter + thresholds + filters +
+      refuse_coverage_drop; (5) wat-as-config option +
+      polish.
+
+# ─── State ───
+status: open
+# Three signals that wat-cov is ready to move from scratch
+# to a real wat-rs arc:
+#   1. wat-fmt slice 1 has shipped (so the established
+#      crate-shipping pattern is real and battle-tested)
+#   2. There's a real consumer demanding coverage measurement
+#      (probably the wat-rs codebase itself once test
+#      discipline matures)
+#   3. User signals "let's start"
+
+# Note: wat-cov is FOUNDATION work alongside wat-fmt and
+# wat-lint and the wards. Same tier of quality infrastructure.
+# The three crates form a triad: format the code, lint the
+# code, measure how much of the code is actually exercised.
