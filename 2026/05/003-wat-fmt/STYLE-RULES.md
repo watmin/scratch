@@ -1329,20 +1329,108 @@ candidates for future revision:
 
 ---
 
-## §11 — Multi-line strings 🔧 DEFERRED
+## §11 — Multi-line strings ✅
 
-### Rule 31 🔧 — Multi-line string handling — deferred until syntax settles
+User locked 2026-05-02 after correcting my deferral:
 
-If/when wat ships multi-line string literals (heredoc or
-triple-quote), the rule will be: **preserve verbatim including
-internal whitespace; surrounding form's indentation does not
-break the string's content.** Same atomicity-and-signal
-principle from §7 — string literals are atomic primitives;
-the formatter doesn't reflow them.
+> "what's the deferral?.... multiline should just be
+>
+>   (..sometheing...
+>     "sdfsad
+>      sdfsdfsa
+>      asdfas")
+>
+> right?... we have these already existing?..
+>
+> clojure docstrings are how i'm thinking"
 
-**Status: deferred** until wat-rs ships multi-line string
-syntax. No decision needed today. When the syntax lands, this
-rule activates with the obvious interpretation.
+The user was right. Multi-line strings already work in wat —
+the lexer at `wat-rs/src/lexer.rs:294-323` accepts newlines
+inside string literals (the loop only stops on `"`, `\`, or
+EOF; no special-case rejection of `\n`). The deferral was
+wrong; the rule is fully derivable from the atomicity principle
+in §7 plus Rule 27.
+
+### Rule 31 ✅ — Multi-line strings are atomic; continuation lines preserved verbatim
+
+**Multi-line strings are atomic, just like single-line strings.**
+The formatter cannot change their content — including the
+continuation-line whitespace embedded inside the string.
+
+**The rule:**
+- Opening `"` lands wherever the string sits in its parent form
+  (per the parent's layout rule)
+- Continuation lines stay EXACTLY as the user typed them
+- The formatter NEVER touches whitespace inside a string
+  literal, even if the result looks misaligned with the
+  surrounding indentation
+
+**Canonical (Clojure-docstring style):**
+```scheme
+(:wat::core::define
+  (:my-fn (x :T) -> :U)
+  "Compute the thing.
+
+   Takes an X and returns a Y. The Y has these properties:
+     - thing 1
+     - thing 2"
+  body)
+```
+
+The continuation lines align under the opening `"` because the
+user typed them that way; the formatter preserves it.
+
+**If the parent form's indentation changes, the string moves
+position but content stays:**
+
+```scheme
+;; before: parent had less indent
+(:some-form
+  "line one
+   line two")
+
+;; after: surrounded by more nesting; opening `"` moves right
+(:wat::core::let*
+  (((x :T) some-value))
+  (:some-form
+    "line one
+   line two"))
+;;   ↑ continuation line's indent unchanged — it's INSIDE the string
+;;   ↑ now visually misaligned with the new opening `"` position
+;;   ↑ formatter cannot fix this; the indent IS the string's content
+```
+
+The visual misalignment after a reformat IS information — it
+tells the user "your string content has indentation baked in
+that no longer matches the surrounding form." That's a
+**rewrite-the-string** signal, not a **wat-fmt fixes it**
+situation. Same atomicity-and-signal principle as long FQDNs:
+the formatter conserves information; user revises if needed.
+
+### Why this just works
+
+- Substrate already accepts multi-line strings (lexer doesn't
+  reject `\n`)
+- Rule 27 (string preservation) already covers single-line
+  strings; multi-line is the same rule
+- The atomicity principle from §7 means the formatter doesn't
+  modify primitives
+- Clojure-docstring-style is just "string literal in a
+  particular position"; the formatter doesn't need a
+  special docstring concept
+
+### What this does NOT specify
+
+- **Where docstrings live in a function** — not the formatter's
+  call. wat doesn't (yet) have a substrate-level docstring
+  position; if one ships later, the formatter just emits
+  whatever's in that AST slot per Rule 31. Today, docstrings
+  live as `;;` comments above the form (Rule 7) OR as string
+  literals inside the body if the calling convention permits.
+- **Heredoc / triple-quote syntax** — wat doesn't have these
+  separate forms today; standard `"..."` literals already
+  span lines. If wat adds explicit heredoc syntax later, this
+  rule extends to it with the same atomicity discipline.
 
 ---
 
