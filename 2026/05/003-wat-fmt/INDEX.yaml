@@ -1,0 +1,95 @@
+# Scratch arc — wat-fmt: the canonical wat formatter
+#
+# User asked to dive into the formatter from random-notes.txt's
+# four-item list (linter / formatter / test coverage /
+# RemoteProgram<I,O>). The formatter was chosen because it's
+# foundation-level infra alongside the wards — quality gate that
+# ships with wat-rs proper.
+
+arc:
+  slug: wat-fmt
+  date: 2026-05-02
+  triggered-by: |
+    User: "the thing i'm most keen on is the formatter... i have
+    very specific taste but i want to get the idea how to implement
+    a formatter.. our code is edn.. so we can do work on it... i'll
+    correct whatever style guideslines we encounter... you start
+    opinioned.. i'll course correct.... wat-fmt would be fitting?..
+    some create that we can ship that glues into wat-cli? `wat
+    --format some-file.wat` ya?"
+
+    Plus, after my first design pass, three correction-confirmations:
+    - Crate location: wat-rs/crates/wat-fmt/ (not bare wat-rs/wat-fmt/)
+    - Line length: 120 columns (for now; user noted "it'll be longer
+      with reasons")
+    - CLI shape: subcommand pattern confirmed; provides path for
+      future `wat check` / other promotions
+    - Special-form rules: deferred for iteration ("i am /very/
+      opinionated... we'll work on special forms later")
+
+  outcome: |
+    Design captured pre-implementation. Architecture, crate layout,
+    CLI integration, and confirmed style rules locked. Special-form
+    rules drafted but flagged for user review/refinement. Slice
+    plan sized but not opened. The arc is durable thinking; opens
+    as a real wat-rs arc when the user signals.
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - separate STYLE-RULES.md from DESIGN.md so user can mark up
+    the rules without wading through architecture
+  - capture user's confirmations and corrections verbatim
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-02
+    role: orientation
+    summary: |
+      Top-level pointer. What wat-fmt is, why it exists, how to
+      read this arc.
+
+  - file: DESIGN.md
+    captured: 2026-05-02
+    role: architecture
+    summary: |
+      The pipeline (parse → AST → emit), comment preservation
+      strategy, crate location (wat-rs/crates/wat-fmt/), CLI
+      integration (subcommand pattern: `wat fmt path/to/file.wat`),
+      public API shape, error model, round-trip properties,
+      configuration philosophy (start with NO config; one
+      canonical style; per 058 discipline).
+
+  - file: STYLE-RULES.md
+    captured: 2026-05-02
+    role: locked + draft style rules; user will mark up
+    summary: |
+      Twelve confirmed rules (indentation, whitespace, comments,
+      top-level forms) plus draft special-form rules (let, define,
+      lambda, cond, if, match, vec/HashMap/HashSet, FQDN handling,
+      type annotations) that the user wants to iterate on.
+      Designed to be marked up directly by user — each rule is
+      numbered for easy reference.
+
+  - file: SLICE-PLAN.md
+    captured: 2026-05-02
+    role: shipping plan
+    summary: |
+      Five slices: (1) core formatter no comments; (2) comment
+      preservation; (3) CLI subcommand integration; (4) editor
+      contract via --check exit codes; (5) linter foundation
+      (deferred but uses wat-fmt's parser as shared infra).
+
+# ─── State ───
+status: open
+# Three signals that wat-fmt is ready to move from scratch to a
+# real wat-rs arc:
+#   1. User has finished marking up STYLE-RULES.md
+#   2. wat-rs foundations are at a good stopping point
+#   3. User signals "let's start"
+
+# Note: the formatter is FOUNDATION work, not consumer-crate work
+# like wat-english. It's the same tier as the wards (sever, reap,
+# scry, gaze, forge, temper, assay, ignorant) — quality
+# infrastructure. Could land before, alongside, or after the
+# wards-stabilization work depending on user priority.
