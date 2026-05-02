@@ -8,6 +8,18 @@ history.
 The user's scratch repo. Not a production codebase; not a repo
 of record. Just durable.
 
+## Top-level meta-vision
+
+**`WAT-NETWORK.md`** — articulates the meta-vision the per-arc
+work is building toward: a network of mutually-authenticating
+wat-vms with cryptographic identity (mTLS), content-addressed
+programs (digest forms), and verifiable execution (signed eval
+forms). Each arc in `2026/05/003-008` is a piece of this larger
+architecture; the WAT-NETWORK doc is the whole.
+
+Read it after orienting yourself to the per-arc work; it's the
+context that ties the arcs together.
+
 ## A note for readers
 
 This scratch references **private companion repositories**

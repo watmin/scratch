@@ -125,6 +125,46 @@ what implements it. The user might call shim implementations
 "RemoteService" / "Bridge" / "Adapter" but the wat-side type
 stays `:Program<:I, :O>`.
 
+### The wat network — the architectural target
+
+**This arc is one piece of a larger meta-vision.** RemoteProgram
+is the substrate's typed-RPC layer; it sits inside a broader
+architectural target the user has been building toward for
+years: **the wat network.**
+
+The wat network is a network of mutually-authenticating wat-vms
+where:
+- Each node has cryptographic identity (cert / mTLS)
+- Connections are mutually verified
+- Queries / programs sent for execution are signed (verifiable
+  provenance via the substrate's `digest` and `signed eval`
+  forms)
+- Authorization is cryptographic, not network-positional
+- Programs are content-addressed via digest
+
+In this light, mTLS (Tier 4) isn't "the most secure tier" —
+it's the wat network's MEMBERSHIP PROTOCOL. RemoteProgram has
+two modes:
+
+- **In-network mode** (Tiers 1, 4): peer wat-vms; signed
+  queries; mTLS auth; digest-addressable programs
+- **Out-of-network mode** (Tier 3): bridging to non-wat
+  capabilities (S3, LLM APIs, etc.); auth via tokens / server
+  cert
+
+Both modes use the same wire protocol, same wat-vm, same
+RemoteProgram surface. The DIFFERENCE is whether the other
+side speaks wat-network or just speaks the wire.
+
+**See `scratch/WAT-NETWORK.md`** at the top-level for the full
+articulation of the meta-vision, the three load-bearing
+substrate primitives (mTLS / digest / signed eval), the
+architecture, comparisons to other distributed substrates
+(Erlang, Urbit, capability-based OSes), and the role of each
+arc as a piece of the network.
+
+This arc (007) is one piece. The wat network is the whole.
+
 ---
 
 ## The four questions are the design compass
