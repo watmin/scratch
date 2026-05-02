@@ -107,77 +107,153 @@ dependency.
 
 ## Crate structure (sketch)
 
+**Verified 2026-05-02 against the existing wat-shipping crates**
+(wat-lru, wat-holon-lru, wat-sqlite, wat-telemetry,
+wat-telemetry-sqlite). The pattern below mirrors exactly what
+those crates do, per arc 013's external-crate contract.
+
 ```
 wat-rs/crates/wat-fmt/
-  Cargo.toml
+  Cargo.toml                       # depends on wat (path = "../..")
+                                   # and wat-macros (path = "../wat-macros")
   src/                             # Rust shim (minimal)
     lib.rs                         # public Rust API:
                                    #   format(input: &str) -> Result<String>
-                                   # parses input, loads/embeds the
-                                   # wat code, invokes :wat::fmt::format
-                                   # on the AST via the wat-vm, returns
-                                   # the formatted string
-    invoke.rs                      # wat-vm invocation helpers (the
-                                   # bridge from Rust input/output to
-                                   # wat function calls)
+                                   # PLUS the arc-013 two-part contract:
+                                   #   wat_sources() -> &'static [wat::WatSource]
+                                   #   register(&mut RustDepsBuilder)  (if needed)
+    invoke.rs                      # wat-vm invocation helpers (creates
+                                   # an internal Harness, loads the
+                                   # wat sources, runs :wat::fmt::format,
+                                   # returns the String)
     parser_ext.rs                  # comment-preserving parser variant
-                                   # (Rust; lives next to lexer/parser)
-    embed.rs                       # include_bytes! of the wat/ tree
-                                   # so the crate is a single binary
-                                   # unit; no runtime filesystem
-                                   # dependency
+                                   # (lives here until wat-lint also
+                                   # needs it; then promote to wat-rs/src/)
   wat/                             # the actual formatter (wat code)
-    format.wat                     # top-level entry:
+    fmt/                           # crate-name-prefixed namespace dir
+                                   # (matches the wat-lru/lru/ convention)
+      format.wat                   # top-level entry:
                                    #   (:wat::fmt::format ast) -> :String
-    rules/
-      define.wat                   # Rule 14 implementation
-      lambda.wat                   # Rule 14b
-      defmacro.wat                 # Rule 14c
-      let-star.wat                 # Rule 13
-      conditional.wat              # Rule 16 (if / cond / match)
-      try.wat                      # Rule 19 (Result/try, Option/try)
-      expect.wat                   # Rule 19b
-      vec.wat                      # Rule 20
-      bundle.wat                   # Rule 21
-      hashmap.wat                  # Rule 22
-      hashset.wat                  # Rule 22b
-      symbols.wat                  # Rules 23, 24 (FQDN, type sigils)
-      type-annotations.wat         # Rules 25, 26
-      literals.wat                 # Rules 27, 28, 29
-      quasiquote.wat               # Rule 30
-      multiline-string.wat         # Rule 31
-    primitives/
-      indent.wat                   # indent computation (column-aware)
-      width.wat                    # line-length tracking; wrap decisions
-      comment.wat                  # leading / trailing / section-break
-      string-builder.wat           # string concat / padding helpers
-    ast/
-      walk.wat                     # generic AST walker
-      inspect.wat                  # AST inspection helpers
+      rules/
+        define.wat                 # Rule 14 implementation
+        lambda.wat                 # Rule 14b
+        defmacro.wat               # Rule 14c
+        let-star.wat               # Rule 13
+        conditional.wat            # Rule 16 (if / cond / match)
+        try.wat                    # Rule 19 (Result/try, Option/try)
+        expect.wat                 # Rule 19b
+        vec.wat                    # Rule 20
+        bundle.wat                 # Rule 21
+        hashmap.wat                # Rule 22
+        hashset.wat                # Rule 22b
+        symbols.wat                # Rules 23, 24 (FQDN, type sigils)
+        type-annotations.wat       # Rules 25, 26
+        literals.wat               # Rules 27, 28, 29
+        quasiquote.wat             # Rule 30
+        multiline-string.wat       # Rule 31
+      primitives/
+        indent.wat                 # indent computation (column-aware)
+        width.wat                  # line-length tracking; wrap decisions
+        comment.wat                # leading / trailing / section-break
+        string-builder.wat         # string concat / padding helpers
+      ast/
+        walk.wat                   # generic AST walker
+        inspect.wat                # AST inspection helpers
                                    # (head?, args, has-form?, etc.)
+  wat-tests/                       # wat-level tests (loaded as Harness
+                                   # programs; pattern mirrors the
+                                   # existing wat-lru/wat-tests/)
+    fmt/
+      define.wat                   # tests for Rule 14
+      lambda.wat                   # tests for Rule 14b
+      ...                          # one test file per rule
   tests/
+    test.rs                        # Rust harness that runs the
+                                   # wat-tests/ tree via wat::test!
     golden/                        # input.wat + expected.wat pairs
-                                   # (one per Rule's canonical example)
+                                   # (one per Rule's canonical example
+                                   # from STYLE-RULES.md)
     properties.rs                  # round-trip + semantic-preservation
                                    # property tests via the Rust API
 ```
 
-**How the wat code reaches the wat-vm:**
+**How the wat code reaches the wat-vm — the verified pattern:**
 
-The Rust shim uses `include_bytes!` (or equivalent) at compile
-time to embed the entire `wat/` tree into the crate binary. At
-runtime, when `wat_fmt::format` is called, the shim:
+The arc 013 contract (in `wat-rs/src/source.rs`):
 
-1. Initializes a wat-vm instance
-2. Loads the embedded wat code into the wat-vm's symbol table
-3. Parses the input via wat-rs's parser (with the comment-
-   preserving variant)
-4. Invokes `:wat::fmt::format` on the resulting AST
-5. Returns the formatted String to the Rust caller
+```rust
+pub struct WatSource {
+    pub path: &'static str,
+    pub source: &'static str,
+}
+```
+
+Both fields are `&'static str` so external crates can construct
+these via `include_str!` without lifetime concerns.
+
+The Rust shim's `lib.rs`:
+
+```rust
+pub fn wat_sources() -> &'static [wat::WatSource] {
+    static FILES: &[wat::WatSource] = &[
+        wat::WatSource {
+            path: "wat-fmt/fmt/format.wat",
+            source: include_str!("../wat/fmt/format.wat"),
+        },
+        wat::WatSource {
+            path: "wat-fmt/fmt/rules/define.wat",
+            source: include_str!("../wat/fmt/rules/define.wat"),
+        },
+        // ... one entry per .wat file in the wat/ tree
+    ];
+    FILES
+}
+
+// Optional: only if wat-fmt exposes Rust types into wat
+// (currently it doesn't; format is pure wat). Could be omitted.
+pub fn register(builder: &mut wat::rust_deps::RustDepsBuilder) {
+    // no-op for v1; wat-fmt doesn't surface Rust types into wat
+}
+```
+
+For the **direct Rust API** that wat-cli calls:
+
+```rust
+pub fn format(input: &str) -> Result<String, FormatError> {
+    // Build a Harness with our own wat_sources installed
+    let harness = wat::Harness::from_source_with_deps(
+        // a thin wat program that calls :wat::fmt::format
+        // on parsed input and returns the formatted string;
+        // OR just compose with the wat-cli's own session
+        // depending on integration choice
+        ...
+    )?;
+    // invoke and return
+}
+```
+
+For the **transitive wat-lint composition** (what makes the
+wat-not-Rust pivot pay off):
+
+wat-lint depends on wat-fmt the crate. wat-lint's own register
+path includes wat-fmt's sources alongside its own. After
+install, the wat-vm has both `:wat::fmt::*` AND `:wat::lint::*`
+in its symbol table. Lint rules in wat call `:wat::fmt::*`
+functions natively.
+
+`wat-cli` would explicitly list both in its dep registration:
+
+```rust
+wat_cli::run(&[
+    (wat_fmt::register, wat_fmt::wat_sources),
+    (wat_lint::register, wat_lint::wat_sources),
+    // ... other wat-shipping crates
+])
+```
 
 No filesystem dependency at runtime. The wat code travels with
-the Rust crate as compiled bytes; the crate is one shippable
-unit.
+the Rust crate as `include_str!`'d static bytes; the crate is
+one shippable Cargo unit.
 
 **Each rule file is one or two wat functions** that take a
 HolonAST node and return a `:wat::core::String` (or compose with

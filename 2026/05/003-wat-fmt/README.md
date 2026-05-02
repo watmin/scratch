@@ -47,23 +47,29 @@ semantically preserving (`parse(format(x)) == parse(x)`).
 **Single self-contained crate:** `wat-rs/crates/wat-fmt/`.
 
 Both the Rust shim AND the wat code live inside the crate.
-The wat code is embedded into the Rust binary via
-`include_bytes!` so the crate is one shippable unit; no runtime
-filesystem dependency.
+The wat code is embedded into the Rust binary via `include_str!`
+(per arc 013's two-part contract); the crate is one shippable
+Cargo unit with no runtime filesystem dependency.
 
 ```
 wat-rs/crates/wat-fmt/
-  src/                 # Rust shim (parser invocation + wat-vm bridge)
-  wat/                 # the actual formatter (per-rule wat files)
-  tests/               # golden files + property tests
-  Cargo.toml
+  Cargo.toml           # depends on wat (path = "../..") + wat-macros
+  src/                 # Rust shim (wat_sources + register + format API)
+  wat/fmt/             # the actual formatter (per-rule wat files)
+  wat-tests/fmt/       # wat-level tests
+  tests/               # Rust harness + golden files + property tests
 ```
+
+The pattern mirrors the existing wat-shipping crates (wat-lru,
+wat-holon-lru, wat-sqlite, wat-telemetry, wat-telemetry-sqlite)
+exactly — same arc-013 two-part contract, same crate-name-prefix
+in the wat path, same wat-tests/ split.
 
 wat-cli depends on wat-fmt; users who want the CLI get the
 formatter for free as a transitive dep. wat-lint (when it
 ships) also depends on wat-fmt — gets both the Rust API and
 the wat-coded `:wat::fmt::*` primitives via the embedded wat
-code.
+code, registered into the wat-vm alongside its own lint rules.
 
 ## CLI surface
 
