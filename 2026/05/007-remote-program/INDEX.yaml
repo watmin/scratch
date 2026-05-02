@@ -60,6 +60,54 @@ arc:
     firm up. The arc gets the slice plan when at least Q8,
     Q1, Q2, Q4 have been answered.
 
+  refinement-2026-05-03-syntax-pivot: |
+    User pivoted from "answer Q8" to "i was more curious by
+    your config forms" — flagged the keyword-arg constructor
+    syntax I'd sketched as documentation-shorthand:
+
+    > "i really like this.. idk if wat will accept this now...
+    > but we should engineer towards these expressions..."
+
+    Investigation: wat is positional-only at call sites today
+    (verified empirically across wat-rs codebase). The
+    expressive keyword-arg syntax requires either substrate
+    change or a macro layer.
+
+    Conversation explored the macro layer; user saw the
+    broader pattern:
+
+    > "this thing accepts inputs and the macro expands into
+    > type checking... this'll be a good ux in general?....
+    > more things can copy this style?...
+    > it means we could drop type declarations entirely while
+    > masking the details in macros?..."
+
+    Then deepened it further:
+
+    > "we could make this completely generic... we could have
+    > a macro who reads in a function's def and creates a
+    > kwarg variant for the user?... the func's form is fully
+    > specified?.."
+
+    User direction:
+
+    > "let's get a new arc just on type-less kwargs for
+    > function calls... i want this to be something remote
+    > program deps on..."
+
+    OUTCOME: arc 008-kwarg-macros opened to capture the
+    pattern as a substrate-tier concern. RemoteProgram (this
+    arc) explicitly DEPENDS on arc 008. Constructors will be
+    auto-generated via :wat::kwargs::auto-kwargs (arc 008
+    slice 2) once the underlying typed positional functions
+    are defined.
+
+    The auto-generation pattern earned ✅✅✅ on Honest in
+    arc 008's four-questions analysis — drift between the
+    macro and the function is structurally impossible because
+    the function's signature IS the contract; the macro just
+    projects.
+
 conventions:
   - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
   - same shape as 003 / 004 / 005 / 006 (README/INDEX/DESIGN

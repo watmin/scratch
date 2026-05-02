@@ -110,6 +110,12 @@ From the foundation-tier arcs (003-006):
 
 ## Cross-references
 
+- **arc 008 (wat-kwargs)** — **DEPENDENCY.** RemoteProgram's
+  constructors use the kwarg-macro pattern from arc 008. The
+  mTLS constructor in particular benefits because 3 of its 5
+  args are `:Path` (positionally swap-prone). The four
+  constructors are auto-generated via
+  `:wat::kwargs::auto-kwargs` per arc 008's slice 2 deliverable.
 - **wat-fmt** at `scratch/2026/05/003-wat-fmt/` — formatting
   applies to wat code defining RemoteProgram surfaces
 - **wat-lint** at `scratch/2026/05/004-wat-lint/` — likely

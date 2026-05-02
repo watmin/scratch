@@ -1,0 +1,140 @@
+# Scratch arc — wat-kwargs: type-less keyword args via macros
+#
+# Cross-cutting design pattern surfaced during RemoteProgram
+# (arc 007) design conversation. User wanted keyword-arg
+# syntax at function call sites; investigation revealed wat
+# is positional-only today; the pattern emerged: macro layer
+# over typed positional functions. User asked for it as a
+# separate arc that RemoteProgram depends on.
+
+arc:
+  slug: kwarg-macros
+  date: 2026-05-03
+  triggered-by: |
+    Conversation flow during RemoteProgram (arc 007) design:
+
+    User direction on RemoteProgram constructor syntax (after
+    seeing my sketched keyword-arg syntax):
+
+    > "i really like this.. idk if wat will accept this now...
+    > but we should engineer towards these expressions..."
+
+    Investigation: wat is positional-only at call sites today;
+    the pattern shape emerged (macro = clean user surface;
+    typed function = substrate truth).
+
+    User direction on the pattern as a general approach:
+
+    > "this thing accepts inputs and the macro expands into
+    > type checking... this'll be a good ux in general?....
+    > more things can copy this style?...
+    >
+    > it means we could drop type declarations entirely while
+    > masking the details in macros?..."
+
+    User direction on capturing it separately:
+
+    > "let's get a new arc just on type-less kwargs for
+    > function calls... i want this to be something remote
+    > program deps on..."
+
+  outcome: |
+    The pattern captured pre-implementation. Cross-cutting
+    design pattern; RemoteProgram (arc 007) explicitly depends
+    on it.
+
+    THE PATTERN:
+    - LAYER 1: typed positional substrate function (where
+      types live, per the substrate's type system)
+    - LAYER 2: macro that accepts keyword-arg syntax and
+      expands to the typed positional call
+
+    "TYPE-LESS" framing — at the consumer call site, types
+    are completely invisible (just :keyword value pairs).
+    Types remain in the function definition where they
+    belong. The macro is the bridge between consumer
+    convenience and substrate honesty.
+
+    WHY THIS MATTERS:
+    - Multi-arg functions with similarly-typed args (e.g.,
+      mTLS with 3 :Path args) are positionally fragile;
+      kwarg macros prevent the swap
+    - Self-documenting at the call site
+    - Adoptable across many APIs without substrate changes
+
+    PER THE FOUR QUESTIONS:
+    - Obvious: ⚠️ slight cost (two layers; readers must know
+      it's a macro), mitigated by naming (with-X) and docs
+    - Simple: ⚠️ slight cost (two surfaces per API), bounded
+      by discipline (only adopt for kwarg-shaped APIs)
+    - Honest: ✅ types live in one place (the function);
+      both surfaces document their relationship
+    - Good UX: ✅✅ load-bearing — clean call sites; protects
+      against positional-arg swaps
+
+    Four-slice plan sized; not opened.
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - same shape as 003-006 (README/INDEX/DESIGN/SLICE-PLAN)
+    for symmetry across pattern + crate arcs
+  - capture user's verbatim direction on the load-bearing
+    decisions
+  - inherit conventions from prior arcs (four questions
+    discipline, atomicity-and-signal, LLM out until delegate)
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-03
+    role: orientation
+    summary: |
+      Top-level pointer. What the pattern is, why it exists,
+      what "type-less" means, where the (small) crate lives,
+      reading order, conventions inherited, cross-references
+      to wat-fmt / wat-lint / wat-doc / arc 007 (RemoteProgram).
+
+  - file: DESIGN.md
+    captured: 2026-05-03
+    role: architecture
+    summary: |
+      The pattern in detail. Concrete dual-surface example for
+      RemoteProgram's mTLS constructor. The four-questions
+      analysis. The macro implementation pattern (variadic &
+      capture; key-value walk; positional expansion). Helper
+      macro `:wat::kwargs::define-with-kwargs` proposed for
+      slice 2 to reduce boilerplate. When to adopt vs not
+      adopt the pattern. Integration points with wat-fmt
+      (formatting kwarg macro calls), wat-lint (suggestion
+      rule), wat-doc (both layers documented).
+
+  - file: SLICE-PLAN.md
+    captured: 2026-05-03
+    role: shipping plan
+    summary: |
+      Four slices: (1) pattern documentation + first reference
+      implementation in RemoteProgram's mTLS constructor;
+      (2) `:wat::kwargs::define-with-kwargs` helper macro that
+      auto-generates the kwarg surface from a typed function;
+      (3) wat-fmt formatting convention for kwarg macro calls;
+      (4) wat-lint suggestion rule for kwarg-eligible functions.
+
+# ─── State ───
+status: open
+# Bar to graduate to a real wat-rs arc:
+#   1. wat-fmt slice 1 has shipped (so the established
+#      crate-shipping pattern is real)
+#   2. RemoteProgram (007) has at least one constructor that
+#      genuinely benefits from the pattern (the mTLS one is
+#      the case-in-point)
+#   3. User signals "let's start"
+
+# Note: this is a SUBSTRATE-TIER pattern, not a foundation-
+# tier crate. Smaller in scope than wat-fmt/wat-lint/wat-cov/
+# wat-doc. Most of the value is the pattern documentation;
+# the helper macro is convenience.
+
+# Dependency note: arc 007 (RemoteProgram) explicitly depends
+# on this arc per user direction. RemoteProgram's constructors
+# use the pattern; this arc's slice 1 reference impl IS one of
+# RemoteProgram's constructors.
