@@ -152,17 +152,151 @@ User: *"we'll work on special forms later... we'll iterate on
 those... i am /very/ opinionated."* These are first-pass
 proposals; expect heavy markup.
 
-### Rule 13 ❓ — `let*` / `let` align bindings
+### Rule 13 ✅ — `:let*` is always vertical
 
+User locked 2026-05-02. **Note:** the substrate currently has
+only `:let*`; will be renamed to `:let` later. Same rule applies
+post-rename.
+
+**Substrate constraints (verified):**
+- `:wat::core::let*` takes EXACTLY 2 args: bindings list + body
+- One body expression only, not multiple
+- Bindings list can be empty (substrate-legal but pointless;
+  wat-lint will flag)
+
+**Shape:**
+- `:wat::core::let*` keyword alone on line 1
+- Bindings vector `(` indented 2 from `let*` `(`
+- First binding `((sym :type) value)` shares the line with the
+  bindings vector `(`
+- Subsequent bindings align at the same column as the first
+  binding (one character past the bindings vector `(`)
+- Bindings vector closes after the last binding
+- Body indented 2 from `let*` `(` (same depth as bindings vector)
+- **Always vertical** — no fits-on-one-line exception
+
+**Two-binding canonical:**
 ```scheme
-(:wat::core::let* (((x :T) value-1)
-                   ((y :T) value-2))
-  body-expr-1
-  body-expr-2)
+(:wat::core::let*
+  (((some-symbol :some-type) :some-value)
+   ((another-value :another-type) :another-value))
+  (...body...))
 ```
 
-Bindings vector indented to align with the FIRST binding's open
-paren. Body indented exactly 2 from the form's open paren.
+**Single binding (sub-rule 13a):**
+```scheme
+(:wat::core::let*
+  (((only-sym :T) value))
+  body)
+```
+
+Same shape; bindings vector wraps the single binding.
+
+**Wrap rule (Option B locked, sub-rule 13b — wrap value at +2
+from binding's `(`):**
+
+When a binding doesn't fit on one line, wrap with the value
+indented +2 from the binding's `(`:
+
+```scheme
+;; binding ( at column N; typed-param ( at N+1; value at N+2
+((some-symbol :some-type)
+   some-very-long-value-expression)
+```
+
+**Important — this differs from existing wat-rs code.** Files
+like `wat/stream.wat` currently wrap values at typed-param's
+column (+1 from binding's `(`, not +2). The formatter will
+REFLOW all existing wat code to Option B on first run. Expected
+diff churn; not a blocker.
+
+**Long FQDN handling (sub-rule 13c, from EQ3):**
+
+Per Rule 23 (FQDN never wrap), if a binding's typed-param has a
+very long FQDN, the binding line stays over-length; the
+formatter doesn't break the FQDN. Over-length lines are a
+LINT signal — they scream *"you need a type alias"* — but
+wat-fmt's job is to format faithfully, not to refactor.
+
+```scheme
+;; long FQDN; line stays over 120 cols; wat-lint flags it
+((handle :wat::some::very::deep::namespace::WithExtremelyLongTypeName) value)
+```
+
+**Nested `:let*` (sub-rule 13d, from EQ4):**
+
+Same shape, just deeper indent inherited from the parent
+context. A nested `let*` sees its parent's indent as its
+"column 0" baseline; everything else applies relative to
+that:
+
+```scheme
+(:wat::core::let*
+  (((outer :T) value))
+  (:wat::core::let*
+    (((inner :U) (compute outer)))
+    (use outer inner)))
+```
+
+The inner `let*` follows the same rule; bindings vector
+indented 2 from the inner `let*` `(`; body indented 2 from
+the inner `let*` `(`.
+
+**Multi-line value bodies (sub-rule 13e, from EQ5):**
+
+When a binding's value is itself a multi-line form (a
+`lambda`, another `let*`, a `match`, a long `cond`), the
+value follows ITS OWN rule at relative indent. The let* rule
+only specifies WHERE the value's first line lands (per the
+wrap rule); the value's internal structure follows the value's
+form's rule.
+
+```scheme
+(:wat::core::let*
+  (((handler :T)
+     (:wat::core::lambda
+       ((x :i64)
+        -> :i64)
+       (:wat::core::* x 2))))
+  body)
+```
+
+Here the lambda's first character (its `(`) is at +2 from the
+binding's `(` (per Option B), and the lambda itself follows
+the lambda rule (Rule 14b — TBD).
+
+**Empty bindings (substrate-legal but pointless):**
+
+```scheme
+(:wat::core::let*
+  ()
+  body)
+```
+
+Substrate accepts; equivalent to just `body`. Formatter handles
+gracefully (empty bindings vector on its own line); wat-lint
+should flag as code-smell when it ships. Same rule as
+non-empty case.
+
+**Why this shape:**
+- Same "always vertical" discipline as Rules 14 + 16
+- Bindings horizontally compact (typed-param + value on one
+  line when possible) so the visual scan is "one binding =
+  one row"
+- Subsequent bindings align via the bindings vector's content
+  column, matching standard Lisp idiom
+- Body separated from bindings by indent equality (both at
+  +2 from let*'s `(`) — visual symmetry between "what we
+  bind" and "what we do with the bindings"
+
+**Deferred (linked rules, not in scope for Rule 13 itself):**
+- Rule 14b — `:lambda` (deferred from `:define` round)
+- Rule 14c — `:defmacro` (deferred from `:define` round)
+- Rule 23 onwards — FQDN handling (already mostly settled
+  but may need refinement after we use it more)
+- Rule 25 — type annotation tightness
+- A future rule on multi-line value indent calibration if
+  Option B causes issues in practice
 
 ### Rule 14 ✅ — `define` is always vertical
 
