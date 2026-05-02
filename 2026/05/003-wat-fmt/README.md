@@ -33,19 +33,37 @@ everything else falls out.
 
 ## Architecture in one paragraph
 
-Source bytes → tokenizer (with comment-token preservation) →
-parser (attaches comments to adjacent AST nodes) → AST → emitter
-(walks tree, applies per-node format rules, emits text). Pure
-pipeline; no in-place rewriting. Round-trip stable
-(`format(format(x)) == format(x)`); semantically preserving
-(`parse(format(x)) == parse(x)`).
+**wat-fmt is wat code, not Rust** (decision flipped 2026-05-02
+per RuboCop-style language alignment — see DESIGN.md). The
+pipeline: source bytes → wat-rs tokenizer (with comment-token
+preservation) → wat-rs parser (attaches comments to adjacent
+AST nodes) → AST → wat-coded formatter (the wat-vm walks the
+tree, applies per-node format rules in wat, emits text).
+Round-trip stable (`format(format(x)) == format(x)`);
+semantically preserving (`parse(format(x)) == parse(x)`).
 
 ## Where it lives
 
-`wat-rs/crates/wat-fmt/` — workspace member crate alongside the
-existing wat-cli, wat-edn, wat-holon-lru, wat-lru, wat-macros,
-wat-sqlite, wat-telemetry, wat-telemetry-sqlite. wat-cli depends
-on wat-fmt and exposes the user-facing CLI.
+**Single self-contained crate:** `wat-rs/crates/wat-fmt/`.
+
+Both the Rust shim AND the wat code live inside the crate.
+The wat code is embedded into the Rust binary via
+`include_bytes!` so the crate is one shippable unit; no runtime
+filesystem dependency.
+
+```
+wat-rs/crates/wat-fmt/
+  src/                 # Rust shim (parser invocation + wat-vm bridge)
+  wat/                 # the actual formatter (per-rule wat files)
+  tests/               # golden files + property tests
+  Cargo.toml
+```
+
+wat-cli depends on wat-fmt; users who want the CLI get the
+formatter for free as a transitive dep. wat-lint (when it
+ships) also depends on wat-fmt — gets both the Rust API and
+the wat-coded `:wat::fmt::*` primitives via the embedded wat
+code.
 
 ## CLI surface
 

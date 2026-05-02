@@ -74,46 +74,152 @@ Each comment attaches to one AST node. Three positions:
    lines. Treated as a top-level form-equivalent; attaches to
    nothing structurally; preserves blank lines around itself.
 
-## Crate location
+## Crate location and language decision
 
-`wat-rs/crates/wat-fmt/` — workspace member crate alongside the
-existing 8 crates:
-- `wat-cli`, `wat-edn`, `wat-holon-lru`, `wat-lru`, `wat-macros`,
-  `wat-sqlite`, `wat-telemetry`, `wat-telemetry-sqlite`
+**Updated 2026-05-02 — wat-fmt is wat code, not Rust, and the
+crate is fully self-contained.**
 
-wat-cli depends on wat-fmt and exposes the CLI surface.
+User direction (full reasoning in "Why wat, not Rust" below):
+wat-fmt is implemented in wat itself with a minimal Rust shim
+for parser invocation and CLI integration. RuboCop is the model
+— the linter/formatter for a language is itself written in
+that language, enabling user-extensibility and shared
+infrastructure with downstream tools (wat-lint).
+
+**Single self-contained location:** `wat-rs/crates/wat-fmt/`.
+
+Both the Rust shim AND the wat code live inside the crate.
+Other crates (wat-cli, wat-lint, user crates) depend on
+wat-fmt; the wat code travels with the dependency. Users who
+want wat-cli get the formatter for free as a transitive
+dependency.
+
+**Self-contained matters because:**
+- The crate IS the deliverable. No "wat-fmt depends on wat
+  files in a sibling directory" coupling.
+- Distribution is one Cargo unit. `cargo add wat-fmt` is enough.
+- The wat code is a private implementation detail of the
+  crate; consumers see only the Rust + wat APIs that the
+  crate exports.
+- Other downstream crates (wat-lint, future wat-extending
+  tooling) depend on wat-fmt as a unit, not on a scattered
+  set of wat files.
 
 ## Crate structure (sketch)
 
 ```
 wat-rs/crates/wat-fmt/
   Cargo.toml
-  src/
-    lib.rs              # public API
-    tokenizer.rs        # comment-preserving tokenizer (or thin
-                        # wrapper around wat-rs/src/parser)
-    parser.rs           # AST builder with comment attachment
-    ast.rs              # AST + Comment types (or re-export
-                        # wat-rs's HolonAST + Comment extension)
-    emitter.rs          # walk AST + emit formatted text
+  src/                             # Rust shim (minimal)
+    lib.rs                         # public Rust API:
+                                   #   format(input: &str) -> Result<String>
+                                   # parses input, loads/embeds the
+                                   # wat code, invokes :wat::fmt::format
+                                   # on the AST via the wat-vm, returns
+                                   # the formatted string
+    invoke.rs                      # wat-vm invocation helpers (the
+                                   # bridge from Rust input/output to
+                                   # wat function calls)
+    parser_ext.rs                  # comment-preserving parser variant
+                                   # (Rust; lives next to lexer/parser)
+    embed.rs                       # include_bytes! of the wat/ tree
+                                   # so the crate is a single binary
+                                   # unit; no runtime filesystem
+                                   # dependency
+  wat/                             # the actual formatter (wat code)
+    format.wat                     # top-level entry:
+                                   #   (:wat::fmt::format ast) -> :String
     rules/
-      indent.rs         # indentation logic
-      special_forms.rs  # let, define, lambda, cond, if, match
-                        # (the user-iteration-pending rules)
-      collections.rs    # vec, HashMap, HashSet, Bundle
-      atoms.rs          # Atom, Bind, type annotations
-      comments.rs       # leading / trailing / section-break
-                        # placement
-    width.rs            # line-length-aware wrapping decisions
+      define.wat                   # Rule 14 implementation
+      lambda.wat                   # Rule 14b
+      defmacro.wat                 # Rule 14c
+      let-star.wat                 # Rule 13
+      conditional.wat              # Rule 16 (if / cond / match)
+      try.wat                      # Rule 19 (Result/try, Option/try)
+      expect.wat                   # Rule 19b
+      vec.wat                      # Rule 20
+      bundle.wat                   # Rule 21
+      hashmap.wat                  # Rule 22
+      hashset.wat                  # Rule 22b
+      symbols.wat                  # Rules 23, 24 (FQDN, type sigils)
+      type-annotations.wat         # Rules 25, 26
+      literals.wat                 # Rules 27, 28, 29
+      quasiquote.wat               # Rule 30
+      multiline-string.wat         # Rule 31
+    primitives/
+      indent.wat                   # indent computation (column-aware)
+      width.wat                    # line-length tracking; wrap decisions
+      comment.wat                  # leading / trailing / section-break
+      string-builder.wat           # string concat / padding helpers
+    ast/
+      walk.wat                     # generic AST walker
+      inspect.wat                  # AST inspection helpers
+                                   # (head?, args, has-form?, etc.)
   tests/
-    golden/             # input.wat + expected.wat pairs
-    properties.rs       # round-trip stability + semantic
-                        # preservation property tests
+    golden/                        # input.wat + expected.wat pairs
+                                   # (one per Rule's canonical example)
+    properties.rs                  # round-trip + semantic-preservation
+                                   # property tests via the Rust API
 ```
+
+**How the wat code reaches the wat-vm:**
+
+The Rust shim uses `include_bytes!` (or equivalent) at compile
+time to embed the entire `wat/` tree into the crate binary. At
+runtime, when `wat_fmt::format` is called, the shim:
+
+1. Initializes a wat-vm instance
+2. Loads the embedded wat code into the wat-vm's symbol table
+3. Parses the input via wat-rs's parser (with the comment-
+   preserving variant)
+4. Invokes `:wat::fmt::format` on the resulting AST
+5. Returns the formatted String to the Rust caller
+
+No filesystem dependency at runtime. The wat code travels with
+the Rust crate as compiled bytes; the crate is one shippable
+unit.
+
+**Each rule file is one or two wat functions** that take a
+HolonAST node and return a `:wat::core::String` (or compose with
+the parent rule's emitter). Easy to navigate; easy to extend;
+each rule's wat code IS its specification (the canonical
+example in STYLE-RULES.md becomes a test case).
+
+**The wat-vm runs the formatter.** When `:wat::fmt::format` is
+invoked from the Rust shim, the wat-vm walks the AST in wat
+code, applies the per-form rules, builds the output string. The
+wat-vm interpretation cost is acceptable for v1 (format is rare;
+correctness > speed); v2 may cache or compile hot paths if
+performance matters.
+
+## Dependency story
+
+```
+wat-rs (parser, wat-vm, type checker)
+  ↑
+wat-rs/crates/wat-fmt (Rust shim + embedded wat code)
+  ↑                  ↑
+wat-cli              wat-lint (when it ships)
+                     (depends on wat-fmt; can call :wat::fmt::*
+                      from its own wat code; gets the embedded
+                      wat code via wat-fmt's transitive presence
+                      in the wat-vm's symbol table)
+```
+
+Users who depend on wat-cli get wat-fmt as a transitive
+dependency — the formatter ships with the CLI for free.
+Users who want only the formatter as a library depend on
+wat-fmt directly. Users who want the linter depend on wat-lint
+which itself depends on wat-fmt; both wat-coded surfaces become
+available in the wat-vm.
 
 ## Public API
 
-Minimal, total, opinionated:
+**Two surfaces:**
+
+### Rust API (the shim's `lib.rs` exports)
+
+For wat-cli and other Rust consumers:
 
 ```rust
 pub fn format(input: &str) -> Result<String, FormatError>;
@@ -134,8 +240,35 @@ pub fn format_diff(input: &str) -> Result<String, FormatError>;
 // returns unified diff between input and format(input)
 ```
 
-That's the entire crate API. No configuration struct (per
-philosophy below).
+The Rust shim parses input with wat-rs's parser, then invokes
+`:wat::fmt::format` on the resulting AST via the wat-vm.
+
+### wat API (what the wat code exposes)
+
+For wat-lint and wat-extending consumers:
+
+```scheme
+(:wat::fmt::format
+  (ast :wat::holon::HolonAST)
+  -> :wat::core::String)
+
+(:wat::fmt::indent-of
+  (ast :wat::holon::HolonAST)
+  (column :wat::core::i64)
+  -> :wat::core::i64)
+
+(:wat::fmt::would-wrap?
+  (ast :wat::holon::HolonAST)
+  (column :wat::core::i64)
+  -> :wat::core::bool)
+```
+
+Plus per-rule entry points (e.g., `:wat::fmt::rules::define`,
+`:wat::fmt::rules::let-star`) that downstream tools can call
+to ask wat-fmt about specific form's layout decisions.
+
+That's the entire API. No configuration struct (per philosophy
+below).
 
 ## CLI integration
 
@@ -228,49 +361,138 @@ mode is "input didn't parse." Three principles:
 
 Not a concern for v1. Format is a rare operation (on save, on
 commit, on PR). Correctness matters more than speed. Format the
-entire file at once; no incremental formatting. If a 10k-line
-file takes 100ms to format, that's fine.
+entire file at once; no incremental formatting.
 
-If/when performance matters, the natural hot path is: skip
-files that already pass `--check` (fast hash compare), only
-re-format on AST diff.
+**With the wat-not-Rust pivot, performance budget is wider:**
+- Pure-Rust formatter: ~5-20ms for a 10k-line file
+- wat-coded formatter via wat-vm interpretation: 5-50x slower
+  is plausible (rough order of magnitude; would need real
+  benchmarks)
+- Target: ≤ 200ms for a 10k-line file on save. Above that,
+  optimize.
 
-## Why Rust, not wat itself
+If/when performance matters, the natural optimization paths:
+- Skip files that already pass `--check` (fast hash compare);
+  only re-format on AST diff
+- Memoize per-form output keyed on AST hash (most reformats
+  re-emit identical sub-trees)
+- Compile hot wat rules to Rust at build time (v2 only; not
+  v1)
 
-wat is homoiconic; HolonAST is closed under itself; in
-principle wat-fmt could BE a wat program over wat. Tempting.
+## Why wat, not Rust
 
-Rejected for v1:
+**Decision flipped 2026-05-02.** The earlier draft of this
+section argued for Rust; user pushed back via the wat-lint
+implication. RuboCop is the model: a Ruby linter/formatter is
+itself written in Ruby because that maximizes language-shared
+machinery between the linter and its target language.
 
-- The parser is in Rust; format-time benefits from
-  parser-internal access (token positions, error spans, etc.)
-- wat doesn't yet have a String pretty-printing primitive of
-  the shape this needs; would have to build that first
-- wat-cli is Rust; integrating a Rust crate is one less FFI
-  boundary
+For wat the alignment is even cleaner because of homoiconicity
+— wat IS the AST language by construction; you don't need
+reflection, you just `match` on `HolonAST`.
 
-Could revisit later: if wat grows a pretty-printer primitive
-naturally (for some other reason), wat-fmt v2 might collapse
-into wat code. v1 ships in Rust.
+**Why this wins:**
 
-## What goes into wat-rs proper vs wat-fmt
+1. **wat-lint can compose with wat-fmt's primitives directly.**
+   Lint rules ask "would this wrap?", "what's the indent here?",
+   "is this symbol over the line limit after formatting?" —
+   all by calling `:wat::fmt::*` functions natively. No FFI;
+   no context switch; same language.
 
-Stays in wat-rs proper:
+2. **User extensibility.** Drop a custom format / lint rule as a
+   `.wat` file in the right place; wat-fmt picks it up. Users
+   write wat code to extend wat tooling. The community can
+   contribute rules without touching Rust.
+
+3. **Single source of truth.** The 19 STYLE-RULES locked in
+   STYLE-RULES.md are realized as wat code in `wat-rs/wat/fmt/`.
+   The spec (the rule's English description + canonical example)
+   sits next to the implementation (the wat function). No
+   spec/code drift.
+
+4. **Aligns with substrate philosophy.** wat's whole pitch is
+   "wat is the meta-language for everything wat." Implementing
+   wat-fmt in Rust would have hardcoded one piece of the wat
+   ecosystem in a non-wat language. wat-fmt-in-wat keeps the
+   meta-language pure.
+
+5. **Strange loop.** wat code that reformats wat code, called by
+   the wat-vm, parsed by wat-rs's parser. The whole pipeline is
+   wat-aware.
+
+**Substrate primitives the formatter composes from** (verified
+2026-05-02):
+
+- String building: `:wat::core::string::concat`,
+  `:wat::core::string::join`, `:wat::core::show`
+- String inspection: `:wat::core::string::starts`, `::ends`,
+  `::contains?`, `::length`, `::trim`, `::split`, `::to`
+- AST inspection / walking: `:wat::core::first` / `:second` /
+  `:third` / `:rest`, `:length`, `:filter`, `:map`,
+  `:foldl`, `:foldr`
+- AST pattern matching: `:wat::form::matches?` (per arc 098)
+- HolonAST: closed under itself; every AST node IS a HolonAST
+- `:wat::core::match` over HolonAST shapes
+
+Plus `:wat::core::eval` and friends for self-introspection.
+
+**What stays in Rust:**
+
+- The bare parser (lexer + AST construction) — the bootstrap
+  has to be Rust; you can't parse wat with code that's parsed
+  from wat. Already in `wat-rs/src/lexer.rs` and
+  `wat-rs/src/parser.rs`.
+- The comment-preserving parser variant (extension of the above;
+  lives in `wat-rs/crates/wat-fmt/src/parser_ext.rs` initially;
+  graduates to `wat-rs/src/` when wat-lint also needs it).
+- The Rust API shim (the `lib.rs` that wat-cli calls).
+- The wat-vm itself (the runtime that interprets the wat code).
+
+Everything else — the format rules, the indent calculations,
+the line-length logic, the comment placement, the
+emitter — is wat code in `wat-rs/wat/fmt/`.
+
+**Performance trade-off:** wat-vm is interpreted, so format-time
+on big files will be slower than a pure-Rust formatter. v1
+accepts this — format is a rare operation; correctness > speed.
+v2 might compile hot paths if profiling shows a real bottleneck.
+
+**What might motivate revisiting:** if wat-vm proves too slow
+for format-on-save in editors (sub-100ms target on 10k-line
+files), v2 could either (a) memoize / cache aggressively, (b)
+compile the rules to Rust at build time. Both are downstream
+optimizations; the wat code stays the source of truth.
+
+## What goes into wat-rs proper vs wat-fmt vs the wat code
+
+**`wat-rs/src/`** (Rust runtime + parser):
 - The standard tokenizer (strip-comments mode)
 - HolonAST definition
 - Type checker
-- Evaluator
+- wat-vm evaluator
 
-Lives in wat-fmt:
-- Comment-preserving tokenizer variant (could move to wat-rs
-  later if other consumers need it)
-- Comment attachment logic
-- Format rules
-- Per-node emitters
+**`wat-rs/crates/wat-fmt/`** (self-contained crate):
+- `src/lib.rs` — public Rust API for wat-cli and library consumers
+- `src/invoke.rs` — wat-vm invocation helper
+- `src/parser_ext.rs` — comment-preserving parser variant
+  (Rust; lives here because it's an extension of the wat-rs
+  parser; could be promoted to `wat-rs/src/` if a second
+  consumer like wat-lint needs the variant directly)
+- `src/embed.rs` — `include_bytes!` of the `wat/` tree
+- `wat/format.wat` — top-level wat entry point
+- `wat/rules/*.wat` — per-form rule implementations
+- `wat/primitives/*.wat` — indent / width / comment /
+  string-builder helpers
+- `wat/ast/*.wat` — AST walking + inspection helpers
+- `tests/` — golden files + property tests
 
-If wat-lint is the next thing, it likely wants the
-comment-preserving tokenizer too — at that point, the variant
-graduates to wat-rs proper as a parser mode.
+**`wat-rs/crates/wat-lint/`** (when it ships — fully isolated
+sibling):
+- Same self-contained shape as wat-fmt
+- Depends on wat-fmt the crate (gets the wat-coded format
+  primitives via wat-fmt's embedded wat code; can call
+  `:wat::fmt::*` from its own lint rules)
+- Has its own `wat/` tree with lint-rule files
 
 ## Open architectural questions
 

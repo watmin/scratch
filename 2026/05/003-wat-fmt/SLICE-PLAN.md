@@ -11,18 +11,39 @@ has a real consumer that demands it.
 **Goal:** parse → AST → emit, handling the substrate's common
 forms. No comment preservation in this slice.
 
-**Deliverables:**
-- `wat-rs/crates/wat-fmt/` workspace member crate created
-- Public API: `wat_fmt::format(input: &str) -> Result<String, FormatError>`
-- AST emitters for: Atom, Bind, Bundle, lambda, let, let*,
-  if, cond, define, defmacro, try, match, vec, HashMap, HashSet
-- Special-form rules per STYLE-RULES.md §4 (whatever's settled
-  by start-of-implementation)
-- Indent / line-length logic per STYLE-RULES.md §1, §2
-- Tests:
-  - Golden files for each substrate form (input.wat + expected.wat)
-  - Round-trip stability: `format(format(x)) == format(x)` (idempotent)
-  - Semantic preservation: `parse(format(x)) == parse(x)`
+**Updated 2026-05-02 — wat-fmt is wat code, not Rust** (per
+DESIGN.md's flipped decision). Slice 1 deliverables now span
+both the Rust shim and the wat code.
+
+**Deliverables (all inside the self-contained
+`wat-rs/crates/wat-fmt/` crate):**
+
+*Rust shim* (`src/`):
+- Workspace member crate created
+- Public Rust API: `wat_fmt::format(input: &str) -> Result<String, FormatError>`
+- `lib.rs` parses input via wat-rs's parser, loads the embedded
+  wat code into a wat-vm instance, invokes `:wat::fmt::format`
+  on the AST, returns the formatted string
+- `invoke.rs` — wat-vm invocation helper
+- `embed.rs` — `include_bytes!` of the `wat/` tree
+- `parser_ext.rs` — comment-preserving parser variant
+
+*wat code* (`wat/`):
+- `format.wat` — top-level entry: `(:wat::fmt::format ast) -> :String`
+- `rules/` — per-rule files for: define, lambda, defmacro,
+  let-star, conditional (if/cond/match), try, expect, vec,
+  bundle, hashmap, hashset, symbols (FQDN handling),
+  type-annotations, literals, quasiquote, multiline-string
+- `primitives/` — indent, width, comment, string-builder
+- `ast/` — generic AST walker + inspector helpers
+
+*Tests:*
+- Golden files for each substrate form (input.wat + expected.wat)
+- Round-trip stability: `format(format(x)) == format(x)` (idempotent)
+- Semantic preservation: `parse(format(x)) == parse(x)`
+- Tests live in `wat-rs/crates/wat-fmt/tests/golden/` (the Rust
+  shim's tests directory; tests invoke the full pipeline
+  including wat-vm)
 
 **Consumer:** wat-rs's own codebase. Run wat-fmt on the entire
 `wat/` tree; verify output is structurally identical to input
@@ -34,8 +55,15 @@ forms. No comment preservation in this slice.
 - Recursive directory traversal
 - File IO (only string-to-string)
 
-**Estimated size:** ~1500-2500 LOC of Rust, mostly emitter
-functions per AST node type + tests.
+**Estimated size:**
+- ~200-400 LOC of Rust (shim only — bulk is wat code)
+- ~1500-2500 LOC of wat (the actual rule implementations)
+
+The wat code is more compact than equivalent Rust because:
+- No type plumbing / lifetime concerns
+- HolonAST native pattern matching
+- HOFs (`:map`, `:foldl`) replace many imperative loops
+- Per-rule files are small (~100-200 LOC each typically)
 
 ---
 

@@ -50,15 +50,34 @@ notes:
       read this arc.
 
   - file: DESIGN.md
-    captured: 2026-05-02
+    captured: 2026-05-02; revised same-day after wat-not-Rust pivot
     role: architecture
     summary: |
       The pipeline (parse → AST → emit), comment preservation
-      strategy, crate location (wat-rs/crates/wat-fmt/), CLI
-      integration (subcommand pattern: `wat fmt path/to/file.wat`),
-      public API shape, error model, round-trip properties,
-      configuration philosophy (start with NO config; one
-      canonical style; per 058 discipline).
+      strategy, public API shape, error model, round-trip
+      properties, configuration philosophy.
+
+      MAJOR REVISION 2026-05-02: wat-fmt is wat code, not Rust
+      (RuboCop-style alignment per user direction). The crate
+      is fully self-contained at wat-rs/crates/wat-fmt/ — Rust
+      shim in src/ + wat code in wat/ + tests in tests/. The
+      wat code is embedded into the Rust binary via
+      include_bytes! so the crate is one shippable unit; no
+      runtime filesystem dependency.
+
+      Dependency story: wat-cli depends on wat-fmt (users get
+      the formatter for free with the CLI); wat-lint when it
+      ships also depends on wat-fmt and gets both the Rust API
+      and the wat-coded :wat::fmt::* primitives via the embedded
+      wat code.
+
+      Why the pivot: wat-lint can compose with wat-fmt's
+      primitives DIRECTLY when wat-fmt is wat code. Lint rules
+      ask "would this wrap?", "what's the indent here?", "is
+      this symbol over the line limit after formatting?" — by
+      calling :wat::fmt::* functions natively. No FFI; no
+      context switch; same language. Plus user-extensibility:
+      drop a custom rule as a .wat file in the right place.
 
   - file: STYLE-RULES.md
     captured: 2026-05-02
