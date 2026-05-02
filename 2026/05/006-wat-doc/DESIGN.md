@@ -11,6 +11,94 @@ locks the load-bearing architecture; details follow.
 
 ---
 
+## The convention — comments vs docstrings
+
+User direction (2026-05-03):
+
+> *"i think a convention... for wat-doc....
+>
+> ;; comments are for the developer's inner monolouge... 'this
+> is what i want thinking when i made this...'
+>
+> docstrings are communicating instructions on how to use the
+> thing... not detialing how the thing is made... yea?... that's
+> the partiiton line... we can impose this as a convention?..
+> not a linter/format thing.. (though we should have a rune for
+> 'i'm not writing a doc string' and make it annoying to
+> encourage good doc strings...)"*
+
+The partition:
+
+| Channel | Audience | Purpose |
+|---|---|---|
+| `;;` comments | The author (and future-author) | **Inner monologue** — "this is what I was thinking when I made this" |
+| docstrings | The consumer | **Instructions** — "this is how to use this thing" |
+
+Two audiences, two channels, complementary. A well-documented
+form may have BOTH — a `;;` block above explaining design
+tradeoffs and rejected alternatives (author's notes), plus a
+docstring inside explaining the public contract (user's
+instructions).
+
+**The discipline this convention encodes:**
+
+- Comments are first-person internal ("I went with X because Y";
+  "rejected approach Z because W"; "TODO: revisit when N")
+- Docstrings are second-person external ("call this with X to
+  get Y"; "raises Err on empty input"; "see also `:other-fn`")
+- Neither replaces the other; they serve different readers
+- A form may have just comments (internal-only thinking that
+  needs no public doc), just a docstring (clean public API
+  with no tricky implementation), or both (rich public API
+  with non-obvious implementation)
+
+**Implications:**
+
+1. **wat-doc extracts ONLY docstrings.** No fallback to leading
+   `;;` comments. Comments are NEVER promoted to documentation
+   by default. The earlier-proposed fallback (transition
+   easement) is REMOVED from this design — per the convention,
+   it would falsely promote inner monologue into user-facing
+   docs.
+
+2. **wat-fmt Rule 8 reframes** (small amendment to STYLE-RULES.md):
+   the format rule is unchanged ("block comments above the form;
+   no blank line between"), but the SEMANTIC shifts —
+   comments express the AUTHOR'S INTENT, not the form's
+   documentation. Format behavior stays; framing sharpens.
+
+3. **wat-lint missing-docstring rule is L1 default** —
+   annoyingly visible. Per the user direction: "make it
+   annoying to encourage good doc strings." See the wat-lint
+   integration section below for the full disposition.
+
+4. **The migration story changes.** Existing wat code without
+   docstrings doesn't get its comments auto-promoted to docs.
+   It gets the lint warning (annoyingly). User either writes
+   a docstring OR a rune. Comments stay where they are,
+   serving their original audience (the author).
+
+**Why this matters for the four questions:**
+
+- **Obvious?** ✅ — two channels, two audiences; the difference
+  is named explicitly, not inferred
+- **Simple?** ✅ — one rule (comments are inner; docstrings are
+  outer); no negotiated overlap
+- **Honest?** ✅✅ — the author's notes don't pretend to be
+  user docs; the user docs don't pretend to be implementation
+  notes. Each says what it is.
+- **Good UX?** ✅ — readers know where to look: scan the
+  docstring for usage; scan the comments for context
+
+This is a CONVENTION, not enforced syntax. The substrate
+doesn't differentiate comments from docstrings semantically
+(both are valid wat). The convention is enforced by:
+- Tooling (wat-doc only reads docstrings; wat-lint flags
+  missing docstrings)
+- The community (linting + reviewing pressure)
+- The discipline articulated here (this section is the
+  authoritative source of the partition)
+
 ## The four questions are the design compass
 
 Per the established discipline (carried from wat-fmt / wat-lint /
@@ -345,26 +433,49 @@ New lint rule:
 / `:typealias` / `:struct` / `:enum` / `:lambda`-as-let-binding),
 is a docstring present?
 
-**Threshold:** any public form without a docstring → L2
-candidate (configurable to L1 via `wat-lint.edn`).
+**Default severity: L1-candidate.** Annoyingly visible per the
+user direction: "make it annoying to encourage good doc
+strings." Configurable to L2 or L3 via `wat-lint.edn` if a
+project wants softer enforcement (e.g., during wholesale
+migration). Default is loud.
+
+**The discipline:** every public form is EITHER documented OR
+runed. Both are conscious choices; both make intent visible.
+The lint catches forms that are NEITHER (the silent "I forgot"
+case the convention wants to surface).
 
 **Rune categories:**
 - `documentation(self-evident)` — name + signature is
   sufficient documentation; no docstring needed
+  (e.g., `:wat::core::first` — name says it all)
 - `documentation(transitional)` — code is in active migration;
   docstring will come in a follow-up
+- `documentation(internal)` — form is internal-only; not
+  user-facing API; lint scope shouldn't include it
+  (could also handle via filter config instead of rune)
+- `documentation(generated)` — form was generated by
+  macro/tooling expansion; docstring N/A
 
 **Finding shape:**
 ```edn
 {:rule "documentation/missing-public-docstring"
- :severity :L2-candidate
+ :severity :L1-candidate
  :file "wat/foo.wat"
  :line 12
  :context {:form-name ":wat::foo::bar"
-           :form-kind :define}
+           :form-kind :define
+           :is-public true}
  :message ":wat::foo::bar has no docstring"
- :hint "add a docstring as the second arg to define"}
+ :hint "add a docstring as the second arg to define, OR
+        suppress with `;; rune:documentation(<category>) — <reason>`"}
 ```
+
+**The "annoying" disposition in practice:**
+- L1-candidate by default → CI fails on `wat lint --check`
+- Findings appear in standard reports (no opt-out by default)
+- Hint includes BOTH paths: "write a docstring" OR "write a rune"
+- Both paths are equally valid; the discipline is "be conscious"
+  not "always document"
 
 ### `documentation/broken-cross-ref` (future)
 
@@ -378,21 +489,30 @@ The substrate change is OPT-IN:
 - Existing 2-arg forms (`(define sig body)`) continue to work
   unchanged
 - Code without docstrings doesn't break; just generates docs
-  with no description (or wat-lint flags as missing)
-- Migration is gradual: add docstrings where they help; existing
-  comments-above stay as ordinary comments
+  with no description (or wat-lint flags as missing,
+  annoyingly)
+- Migration is gradual: add docstrings where they help;
+  existing comments-above stay as their original audience —
+  the AUTHOR (per the partition convention)
 
-**Transitional behavior:** wat-doc CAN read leading `;;`
-comments as fallback documentation when no docstring exists.
-This eases migration. Rule of precedence:
+**No transitional fallback to comments.** Per the
+comments-vs-docstrings partition (top of this document),
+comments are NEVER promoted to documentation. The earlier-
+proposed fallback (read leading `;;` comments as docs when no
+docstring exists) was REMOVED — it would falsely promote
+inner monologue into user-facing docs, violating the
+partition.
 
-1. If docstring slot is filled → use docstring
-2. Else if leading `;;` comment block exists → use comment
-3. Else → no documentation; wat-lint flags as missing
-
-The fallback is transitional; long-term, the docstring slot is
-the canonical home and comments-above are ordinary comments
-(not documentation).
+The migration story is honest:
+1. Existing wat code without docstrings → wat-lint flags
+   (L1-candidate, annoyingly visible)
+2. User decides per form: write a docstring OR write a rune
+   (`;; rune:documentation(<category>) — <reason>`)
+3. Comments above stay where they are; they continue to serve
+   the author (their original audience)
+4. Long-term, the docstring slot is the canonical home for
+   user-facing docs; comments are the canonical home for
+   author-facing notes
 
 ## Per-crate vs project-wide doc trees
 

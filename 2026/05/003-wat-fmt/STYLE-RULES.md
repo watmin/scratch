@@ -72,18 +72,40 @@ When a form exceeds 120 columns, wrap per the special-form rules
 Modulo trailing whitespace stripped. Otherwise the comment text
 is untouched (no rewrapping, no spell-check, no normalization).
 
-### Rule 8 ✅ — Block comments above the form they document
+### Rule 8 ✅ — Block comments above the form (author's inner monologue)
+
+**Reframed 2026-05-03 per the wat-doc convention partition:**
+comments are the AUTHOR'S INNER MONOLOGUE about the form
+("this is what I was thinking when I made this"), not the
+form's user-facing documentation. User-facing docs go in the
+docstring slot per the wat-doc design. Format behavior is
+unchanged; framing is sharpened.
 
 ```scheme
-;; Compute the cosine similarity between two HolonAST forms.
-;; Returns Ok(:f64) on success; Err on dimension mismatch.
-(:wat::core::define (:user::cosine-sim (a :HolonAST) (b :HolonAST)
-                                       -> :Result<:f64,:Error>)
-  ...)
+;; Decided to inline this rather than extract a helper —
+;; the cosine call is the only consumer; extraction would
+;; just add a hop with no clarity gain.
+(:wat::core::define
+  (:user::cosine-sim
+    (a :HolonAST)
+    (b :HolonAST)
+    -> :Result<:f64,:Error>)
+  "Compute cosine similarity between two HolonAST forms.
+   Returns Ok :f64 on success; Err on dimension mismatch."
+  ...body...)
 ```
 
+The comment says WHY; the docstring says HOW TO USE. Two
+audiences, two channels.
+
 No blank line between the leading comment and its form. They
-belong together.
+belong together (the comment is FOR this specific form).
+
+**Cross-references:**
+- wat-doc convention: `scratch/2026/05/006-wat-doc/DESIGN.md`
+  § "The convention — comments vs docstrings"
+- The format rule (no blank line; placement) is unchanged from
+  the original Rule 8 lock; only the SEMANTIC framing shifted
 
 ### Rule 9 ✅ — Inline comments require two spaces before `;;`
 

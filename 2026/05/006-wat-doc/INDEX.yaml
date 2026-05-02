@@ -50,8 +50,9 @@ arc:
     details via chat afterward.)
 
   outcome: |
-    wat-doc architecture captured pre-implementation. Four
-    load-bearing decisions locked:
+    wat-doc architecture captured pre-implementation. Five
+    load-bearing decisions locked (the fifth added 2026-05-03
+    via C-refinement):
 
     1. Docstrings are FIRST-CLASS CITIZENS in substrate forms.
        define / lambda / defmacro accept an optional docstring
@@ -72,7 +73,42 @@ arc:
 
     4. wat-lint integration: new rule
        `documentation/missing-public-docstring` flags public
-       forms without docstrings. Severity tunable per project.
+       forms without docstrings. Default severity L1
+       (annoyingly visible per user direction); configurable
+       to softer levels per project.
+
+    5. THE COMMENTS-VS-DOCSTRING PARTITION (added 2026-05-03):
+       ;; comments are for the developer's inner monologue
+       ("this is what I was thinking when I made this");
+       docstrings are instructions for the consumer ("this is
+       how to use this thing"). Two audiences, two channels,
+       complementary. wat-doc extracts ONLY docstrings (no
+       fallback to comments); wat-fmt's Rule 8 reframed
+       (format behavior unchanged; semantic sharpened);
+       wat-lint missing-docstring rule is L1 default with rune
+       suppression for conscious exceptions.
+
+       Rune categories for the missing-docstring rule:
+       - documentation(self-evident) — name + signature
+         sufficient
+       - documentation(transitional) — docstring coming
+       - documentation(internal) — not user-facing API
+       - documentation(generated) — macro/tooling output
+
+       The discipline: every public form is EITHER
+       documented OR runed. Both are conscious choices; both
+       make intent visible.
+
+       User direction:
+       > "i think a convention... for wat-doc.... ;; comments
+       > are for the developer's inner monolouge... 'this is
+       > what i want thinking when i made this...' docstrings
+       > are communicating instructions on how to use the
+       > thing... not detialing how the thing is made... yea?...
+       > that's the partiiton line... we can impose this as a
+       > convention?.. not a linter/format thing.. (though we
+       > should have a rune for 'i'm not writing a doc string'
+       > and make it annoying to encourage good doc strings...)"
 
     Four-slice plan sized; not opened. Refinements to come via
     chat (output format specifics, cross-reference mechanics,
