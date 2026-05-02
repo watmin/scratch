@@ -1,0 +1,144 @@
+# Scratch arc — wat-lint: the canonical wat linter
+#
+# Sibling to the wat-fmt arc (003). User opened this thread:
+# "we have our first linter requirement... and we have a new
+# spell in wat-rs/.claude/skills/ to assess the findings the
+# linter produces"
+
+arc:
+  slug: wat-lint
+  date: 2026-05-02
+  triggered-by: |
+    User direction across two-stage conversation:
+
+    Stage 1 — establishing the bridge from wat-fmt to wat-lint:
+    > "ok - so - with our docs figured out... we've basically
+    > carved the path for some future version of ourselves to
+    > implement this with relatively low friction?...
+    > [...]
+    > ok - do you think we have enough run way to start thinking
+    > through the linter at a high level?... i think the
+    > formatter we a prereq conceptually?... some wat-lint crate
+    > we can model next who depends on the existence of wat-fmt?"
+
+    Stage 2 — the load-bearing architectural directives:
+    > "i find rubocop to be an excellent example of how to
+    > manage linting... i think this means we need wat-fmt to
+    > be in wat.. not rust?... so wat-lint can use the
+    > capability wat-fmt has to observe conditions being present?"
+
+    > "meh.... i want to keep the llm out of the process until
+    > the very end... the user can choose to interpret the lint
+    > outputs or delegate to an llm to get a judgement call.. but
+    > before that... its all structural analysis..."
+
+    > "wat-lint ouput is developer-first ... humans or machines"
+
+    > "we need to have linter marks... i /really/ like how we
+    > do this with our spells.... study the holon-lab-trading
+    > spells for the idea... wat users can rune something as a
+    > declaration of 'i know this violates, i don't care, here's
+    > my justification'"
+
+    > "we should support --json since the whole planet uses json
+    > (for now... we'll get them to migrate to edn soon enough...)
+    > -- wat-edn provides an edn->json interface"
+
+    Stage 3 — the four questions as compass:
+    > "is this obvious?...
+    > is this simple?...
+    > is this honest?...
+    > is this a good ux?...
+    > we need these to guide us..."
+
+    Stage 4 — direction to capture:
+    > "let's get your docs in order - nice job on this"
+
+  outcome: |
+    wat-lint architecture captured pre-implementation. Two-phase
+    architecture (mechanical lint + opt-in spell judgment),
+    arc-013 self-contained crate pattern, rune suppression
+    inherited verbatim from holon-lab-trading, developer-first
+    EDN output with JSON via wat-edn, the four questions as
+    design compass, RuboCop-modeled custom-rule paths.
+
+    Five concrete first rules: the complectens Phase-1 mechanical
+    rules from arc 130. Placeholders for perspicere and vocare's
+    eventual rules.
+
+    Five-slice plan sized; not opened. Bar to open as a real
+    wat-rs arc: wat-fmt slice 1 lands first (so wat-lint can
+    depend on a real Rust crate), then user signals start.
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - same shape as the 003-wat-fmt arc (README/INDEX/DESIGN/
+    LINT-RULES/SLICE-PLAN) for symmetry across consumer-crate
+    arcs
+  - capture user's exact directives verbatim (the load-bearing
+    framings deserve to live in their own words)
+  - inherit conventions from wat-fmt where the discipline is
+    shared (atomicity-and-signal, four questions as compass,
+    arc-013 crate pattern, etc.)
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-02
+    role: orientation
+    summary: |
+      Top-level pointer. What wat-lint is, the two-phase
+      architecture (mechanical + opt-in spell), where it lives,
+      reading order, conventions inherited from wat-fmt,
+      cross-references.
+
+  - file: DESIGN.md
+    captured: 2026-05-02
+    role: architecture
+    summary: |
+      Architecture (two-phase mechanical + spell), arc-013
+      self-contained crate layout, runner shape, output format
+      (developer-first EDN; JSON via wat-edn), rune suppression
+      pattern (inherited verbatim from holon-lab-trading),
+      RuboCop-modeled custom-rule paths (crate-distributed +
+      project-local), the four questions applied throughout.
+      Rule signature deferred per Q2; figure out during
+      implementation.
+
+  - file: LINT-RULES.md
+    captured: 2026-05-02
+    role: initial concrete rules
+    summary: |
+      Five concrete Phase-1 rules from the complectens spell
+      (arc 130): deftest body length, let* binding count,
+      forward reference, stepping-stone multi-file, helper
+      without deftest. Plus placeholders for perspicere and
+      vocare rules (TBD when those spells formalize their
+      mechanical phases). Each rule documents its categories
+      (the rune vocabulary).
+
+  - file: SLICE-PLAN.md
+    captured: 2026-05-02
+    role: shipping plan
+    summary: |
+      Five slices: (1) runner + complectens Phase-1 rules;
+      (2) rune-suppression mechanism + EDN output; (3) JSON
+      output via wat-edn + CLI integration; (4) custom-rule
+      discovery paths (project-local + crate-distributed);
+      (5) layout-aware rules using wat-fmt analyses (deferred
+      until wat-fmt slice 1 lands).
+
+# ─── State ───
+status: open
+# Three signals that wat-lint is ready to move from scratch
+# to a real wat-rs arc:
+#   1. wat-fmt slice 1 has shipped (so wat-lint can depend
+#      on the real Rust crate)
+#   2. The complectens spell's Phase-1 rules have been validated
+#      against arc 130's calibration set
+#   3. User signals "let's start"
+
+# Note: wat-lint is FOUNDATION work alongside wat-fmt and the
+# wards. Same tier of quality infrastructure. Could land before,
+# alongside, or after the wards-stabilization work depending on
+# user priority.
