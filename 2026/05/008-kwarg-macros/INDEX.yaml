@@ -335,12 +335,24 @@ captured-beats:
 
       Convention 3 — HASH-MAP KWARGS (the composability target):
 
-        (:wat::core::let
-          ((args (:wat::core::hash-map
-                   :from   account-a
-                   :to     account-b
-                   :amount 500)))
+        (:wat::core::let*
+          (((args :HashMap<Symbol,HolonAST>)
+             (:wat::core::HashMap :(Symbol,HolonAST)))
+           ((args :HashMap<Symbol,HolonAST>)
+             (:wat::core::assoc args :from account-a))
+           ((args :HashMap<Symbol,HolonAST>)
+             (:wat::core::assoc args :to account-b))
+           ((args :HashMap<Symbol,HolonAST>)
+             (:wat::core::assoc args :amount 500)))
           (:transfer-funds args))
+
+        ;; Note the canonical wat-core syntax:
+        ;; - :wat::core::HashMap is the PascalCase TYPE FQDN
+        ;; - construction takes a tuple-type :(K,V) for the kv types
+        ;; - :wat::core::assoc adds entries; returns a new HashMap
+        ;; - per wat-rs/docs/USER-GUIDE.md, the "core collections"
+        ;;   are HashMap, HashSet, Vec; verbs are assoc/dissoc/get/
+        ;;   contains?/keys/values/empty?/length
 
       All three converge on ONE type-check engine. The kwargs and
       hash-map surfaces unpack their inputs and call the same
@@ -352,45 +364,71 @@ captured-beats:
 
       THE HASH-MAP COMPOSABILITY WIN:
 
-      Convention 3 unlocks the patterns Clojure made canonical:
+      Convention 3 unlocks the patterns Clojure made canonical.
+      Examples below use the verbs wat-core actually exposes
+      (assoc, dissoc, get, contains?). Substrate gap noted below
+      where a primitive is needed but doesn't yet exist.
 
-        ;; Build args from multiple sources via hash-map merging
+        ;; Modify args in pipeline (assoc chain via let*)
         (:wat::core::let*
-          ((defaults  (:wat::core::hash-map :memo "default-memo"))
-           (required  (:wat::core::hash-map
-                        :from account-a :to account-b))
-           (overrides (:wat::core::hash-map :amount 500))
-           (args      (:wat::core::merge defaults required overrides)))
-          (:transfer-funds args))
-
-        ;; Modify args in pipeline
-        (:wat::core::let*
-          ((base-args  (:get-default-args))
-           (with-from  (:wat::core::assoc base-args :from new-account))
-           (final      (:wat::core::assoc with-from :amount 200)))
+          (((base-args :HashMap<Symbol,HolonAST>) (:get-default-args))
+           ((with-from :HashMap<Symbol,HolonAST>)
+             (:wat::core::assoc base-args :from new-account))
+           ((final     :HashMap<Symbol,HolonAST>)
+             (:wat::core::assoc with-from :amount 200)))
           (:transfer-funds final))
 
         ;; Higher-order: function that prepares args
         (:wat::core::define
-          (:prepare-transfer (user :User) (amount :i64) -> :HashMap)
-          (:wat::core::hash-map
-            :from   (:User/account user)
-            :to     :treasury
-            :amount amount))
+          (:prepare-transfer (user :User) (amount :i64)
+            -> :HashMap<Symbol,HolonAST>)
+          (:wat::core::let*
+            (((m :HashMap<Symbol,HolonAST>)
+               (:wat::core::HashMap :(Symbol,HolonAST)))
+             ((m :HashMap<Symbol,HolonAST>)
+               (:wat::core::assoc m :from (:User/account user)))
+             ((m :HashMap<Symbol,HolonAST>)
+               (:wat::core::assoc m :to :treasury))
+             ((m :HashMap<Symbol,HolonAST>)
+               (:wat::core::assoc m :amount amount)))
+            m))
         (:transfer-funds (:prepare-transfer current-user 500))
 
-        ;; Conditional construction
+        ;; Conditional construction (assoc-on-condition)
         (:wat::core::let*
-          ((args (:wat::core::hash-map :from a :to b :amount n))
-           (args (:wat::core::if include-memo?
-                   (:wat::core::assoc args :memo "scheduled")
-                   args)))
+          (((args :HashMap<Symbol,HolonAST>) (:base-args a b n))
+           ((args :HashMap<Symbol,HolonAST>)
+             (:wat::core::if include-memo?
+               (:wat::core::assoc args :memo "scheduled")
+               args)))
           (:transfer-funds args))
 
-      The hash-map is just data. Data composes. Data merges. Data
-      flows through pipelines. Once the kwargs are a hash-map,
-      the call site is a first-class object that can be
-      manipulated like anything else.
+      The hash-map is just data. Data composes. Data flows through
+      pipelines. Once the kwargs are a hash-map, the call site is
+      a first-class object that can be manipulated like anything
+      else.
+
+      SUBSTRATE GAP — TODO: the user's "merge defaults +
+      overrides" pattern (load-bearing for option-bag composition)
+      needs a :wat::core::merge-or-equivalent primitive. Not
+      currently in wat-core verb set (assoc/dissoc/get/contains?/
+      keys/values/empty?/length per wat-rs/docs/USER-GUIDE.md).
+
+      PLACEHOLDER (per user direction 2026-05-03):
+
+        > "this is a to do... arc 109 will address this..
+        > leave me a placeholder in this doc..."
+
+      Arc 109 (the wat-rs mass-rewrite arc the user is grinding on)
+      will address this gap. Until then:
+      (a) merge primitive ships in 109 — lifts directly into the
+          kwargs use case once available
+      (b) interim: callers compose via repeated assoc, OR
+      (c) interim: wat-kwargs slice 1 ships its own merge if 109
+          hasn't shipped yet
+
+      DO NOT design around the absence — track it as a known
+      substrate dependency that gets resolved in 109.
 
       THE "NOT STRONGLY COUPLED TO POSITIONAL DEFS" PRINCIPLE:
 
@@ -453,25 +491,38 @@ captured-beats:
         map => apply function to list of things"
 
       Discipline applied going forward:
-      - "hash-map" for the keyed data structure (never "map")
-      - "map" reserved for the higher-order function (apply fn to
-        list of things)
-      - Type names: should be `:wat::core::HashMap` or
-        `:wat::core::hash-map` — pending substrate naming check
-        (some existing scratch docs use PascalCase HashMap; that
-        may need normalization to kebab hash-map for Lisp-idiomatic
-        consistency; flagged for future sweep)
+      - PROSE: "hash-map" for the keyed data structure (never
+        "map" alone)
+      - PROSE: "map" reserved for the higher-order function
+        (apply fn to list of things)
+      - CODE / TYPE FQDN: `:wat::core::HashMap` (PascalCase) is
+        the canonical wat substrate type name. Confirmed via
+        wat-rs docs/CONVENTIONS.md ("PascalCase for types: Bundle,
+        HashMap, Console, Stream") and wat-rs docs/USER-GUIDE.md
+        (HashMap listed in core collections; constructor takes
+        a `:(K,V)` tuple-type). Existing scratch docs that use
+        `:wat::core::HashMap` are CORRECT — no kebab sweep needed.
+      - Construction syntax: `(:wat::core::HashMap :(K,V))` for
+        empty; populate via `(:wat::core::assoc m k v)` chain
       - Error variants: scoped names (HandlerError, ApiError,
         ClientError); never bare `:Error`; never bare `error` as
         a variable name
       - This captured-beat itself uses the discipline — see code
-        samples above using `(:wat::core::hash-map ...)` and
-        `(:wat::core::merge ...)` and `(:wat::core::assoc ...)`
+        samples above using `(:wat::core::HashMap :(K,V))` and
+        `(:wat::core::assoc ...)`
 
     pending:
-      - Existing scratch docs using `:wat::core::HashMap`
-        (PascalCase) may need normalization to `:wat::core::hash-map`
-        (kebab) per the Lisp-idiomatic discipline; flagged for a
-        future sweep when convenient
-      - Confirm with wat-rs which form is the canonical type name;
-        scratch follows whatever wat-rs uses as substrate truth
+      - PLACEHOLDER (per user direction): merge primitive for
+        HashMap is a known TODO that arc 109 will address. Until
+        then, kwargs hash-map composition uses repeated assoc.
+        The merge gap is tracked here; no design workaround.
+
+    resolved-this-pass:
+      - PascalCase HashMap naming question: CONFIRMED canonical
+        per wat-rs docs/CONVENTIONS.md and docs/USER-GUIDE.md.
+        Earlier flagged "kebab normalization sweep" RETRACTED —
+        existing scratch is right; no sweep needed.
+      - The wat-core HashMap construction syntax is
+        `(:wat::core::HashMap :(K,V))` with `:(K,V)` as the
+        tuple-type for the key+value types; verbs assoc/dissoc/
+        get/contains?/keys/values/empty?/length per arc 058.
