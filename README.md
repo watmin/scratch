@@ -132,6 +132,7 @@ thread, move it into a new arc directory and seed
 2026/05/010-wat-http-router/                      app tier — Sinatra analog; routing DSL on top of arc 009
 2026/05/011-wat-http-client/                     app tier — HTTP client (the other end of arc 009); reqwest-based
 2026/05/012-wat-repl/                            foundation tier — interactive evaluator; foundation under wat-pause (Ruby's irb-equivalent)
+2026/05/013-wat-schema/                          substrate tier — declarative shape enforcement at boundaries (positive security; the WAF replacement)
 ```
 
 The `2026/05/003-006` arcs together form the **foundation

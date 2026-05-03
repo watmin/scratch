@@ -1,0 +1,140 @@
+# Scratch arc — wat-schema: declarative shape enforcement at boundaries
+#
+# Substrate-tier crate. Builds on wat's type system; adds refined
+# types, shape composition, clara-esque rules, and policy actions on
+# validation failure. Used by every boundary-crossing crate (HTTP,
+# RPC, config, IPC).
+#
+# The recognition: WAFs are negative security (block patterns); what
+# wat needs is positive security (only allow this shape). Wat's type
+# system already does most of the work; wat-schema is the thin layer
+# that makes positive security cheap.
+
+arc:
+  slug: wat-schema
+  date: 2026-05-03
+  triggered-by: |
+    User direction:
+
+    > "alright.. i was just thinking 'i need a waf'... and i don't
+    > think i do... what i need is... a scheme enforcement
+    > solution.... 'my shapes are this' and we can do something
+    > similar to what we did with telemetry's clara-esque shape
+    > validation?...
+    >
+    > idk...."
+
+    [User wrote "scheme" — clear context-from-typo for "schema."]
+
+    After discussion of positive vs negative security and gaze on
+    naming candidates (wat-schema, wat-shape, wat-shield, wat-guard,
+    wat-conform, wat-spec):
+
+    > "wat-schema - i like it - let's get a new scratch for this"
+
+  outcome: |
+    Arc opened. Substrate-tier; same crate pattern as wat-kwargs
+    (arc 008).
+
+    LOCKED:
+    - Name: wat-schema (universal noun; reads in any language;
+      database-schema overload doesn't conflict because namespace
+      clarifies; matches fmt/lint/cov/doc family rhythm)
+    - Substrate-tier (not application-tier); crate at
+      wat-rs/crates/wat-schema/
+    - Architecture: builds on wat type system; adds four layers:
+      refined types, shapes, rules (clara-esque), policies
+    - Used by: arc 009 (wat-http-server) for request/response
+      validation; arc 010 (wat-http-router) for :schema kwarg on
+      routes; arc 011 (wat-http-client) for outbound validation;
+      arc 007 (RemoteProgram) for typed RPC payloads; arc 109
+      (program-with-mailbox) for IPC messages; future config
+      loading; future database row mapping
+    - Dependency: regex (canonical Rust regex crate; per
+      DEPENDENCY-DOCTRINE.md — couple to canonical battle-tested
+      ecosystem foundations)
+
+    THE LOAD-BEARING ARGUMENT (positive vs negative security):
+
+    The user almost reached for a WAF (Web Application Firewall;
+    mod_security; naxsi; signature-based scanning). WAFs implement
+    NEGATIVE SECURITY: "block these known-bad patterns." Reactive;
+    misses novel attacks; pattern-matches on bytes.
+
+    Schema enforcement implements POSITIVE SECURITY: "only allow
+    THIS shape." Anything that doesn't match the schema gets
+    rejected at the boundary, regardless of whether it's a known
+    attack. Strictly stronger than WAFs.
+
+    The industry historically shipped WAFs because positive security
+    was too expensive to implement (every endpoint needs a schema).
+    WAT'S TYPE SYSTEM ALREADY DOES MOST OF THE WORK. wat-schema is
+    the thin layer that makes positive security cheap.
+
+    A wat application with schemas at its boundaries has stronger
+    positive-security guarantees than a similar application behind
+    any WAF. This is "we already built the hard part for other
+    reasons; the security win falls out."
+
+    Slice plan not yet sized; design firms up via chat iteration.
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - same shape as 003-012 (README/INDEX/DESIGN/SLICE-PLAN)
+  - capture user's verbatim direction at decision points
+  - inherit conventions from prior arcs (four questions,
+    arc-013 crate pattern, dependency doctrine, failure
+    engineering)
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-03
+    role: orientation
+    summary: |
+      Top-level pointer. What wat-schema is (substrate-tier
+      shape enforcement), the WAF→schema-enforcement recognition,
+      the four-layer architecture (refined types + shapes + rules
+      + policies), where it lives, where it gets used (every
+      boundary), the honest security argument.
+
+  - file: INDEX.yaml
+    captured: 2026-05-03
+    role: catalog
+    summary: This file. Beat-by-beat capture and arc status.
+
+  - file: DESIGN.md
+    captured: 2026-05-03
+    role: architecture
+    summary: |
+      Architecture in detail: refined-type combinator surface
+      (string/number/email/uuid/url/etc.); shape composition;
+      clara-esque rule engine; policy action taxonomy;
+      structured error model; integration with the wat type
+      system; cross-boundary usage patterns; per-four-questions
+      analysis; open architectural questions.
+
+  - file: SLICE-PLAN.md
+    captured: 2026-05-03
+    role: shipping plan
+    summary: |
+      Sketch slices: refined types (foundation); shapes
+      (composition); rule engine (clara-esque); policy actions;
+      HTTP integration (arcs 009/010); RPC + config integration
+      (arcs 007 + future); production hardening.
+
+# ─── State ───
+status: open (sketch; design firms up via chat)
+# Bar to graduate to a real wat-rs arc:
+#   1. arc 009 (wat-http-server) has shipped slice 1 (so we know
+#      what a schema-validated handler signature should look like
+#      structurally)
+#   2. arc 008 (wat-kwargs) has shipped its slice 1 (the schema
+#      DSL leans heavily on kwargs for ergonomics)
+#   3. User signals "let's start"
+
+# Note: this arc is SUBSTRATE-TIER, like wat-kwargs (008). Not
+# foundation-tier (003-006), which were developer tooling. Not
+# application-tier (009-011), which use the substrate. Substrate-
+# tier crates extend wat itself with reusable mechanisms that other
+# crates compose with.
