@@ -1,4 +1,4 @@
-# wat-http-route — HTTP routing DSL (Sinatra analog)
+# wat-http-router — HTTP routing DSL (Sinatra analog)
 
 User direction (2026-05-03):
 
@@ -8,29 +8,29 @@ User direction (2026-05-03):
 Direction on naming (after applying `/gaze`):
 
 > *"i think we must name them http.... serve could collide
-> with... anything.. and route... also collidable.. wat-http-serve
-> and wat-http-route feel good?.."*
+> with... anything.. and route... also collidable.. wat-http-server
+> and wat-http-router feel good?.."*
 
-Naming locked: `wat-http-route` (this arc) on top of
-`wat-http-serve` (arc 009). Per gaze: `http-` prefix prevents
+Naming locked: `wat-http-router` (this arc) on top of
+`wat-http-server` (arc 009). Per gaze: `http-` prefix prevents
 collision; `route` describes the action; speaks
 unambiguously.
 
 ---
 
-## What wat-http-route is
+## What wat-http-router is
 
 The Ruby Sinatra equivalent for wat. **A routing DSL** that
-sits on top of wat-http-serve's minimal handler interface and
+sits on top of wat-http-server's minimal handler interface and
 makes declarative HTTP applications ergonomic to write.
 
-Where wat-http-serve gives you ONE handler signature, this arc
+Where wat-http-server gives you ONE handler signature, this arc
 gives you the syntactic sugar for splitting application logic
 across many route handlers indexed by (method, path-pattern):
 
 ```scheme
 ;; The Sinatra-style DSL in wat
-(:wat::http::route::define-app :my-app
+(:wat::http::router::define-app :my-app
   (:get "/users/:id"
     :handler get-user)
 
@@ -43,20 +43,20 @@ across many route handlers indexed by (method, path-pattern):
       (:Result/ok (:Response/ok :body "OK")))))
 ```
 
-The DSL compiles to a single `wat-http-serve::Handler` —
+The DSL compiles to a single `wat-http-server::Handler` —
 nothing more, nothing less. The router IS a handler.
 
-## How it pairs with wat-http-serve
+## How it pairs with wat-http-server
 
 ```
-LAYER 4 — wat-http-route   THIS ARC: routing DSL → :Handler
-LAYER 3 — wat-http-serve   arc 009: minimal :Handler interface
+LAYER 4 — wat-http-router   THIS ARC: routing DSL → :Handler
+LAYER 3 — wat-http-server   arc 009: minimal :Handler interface
 LAYER 2 — Rust shim        tokio + hyper (in arc 009's crate)
 LAYER 1 — Rust ecosystem   tokio runtime; hyper HTTP/1+2
 ```
 
-**wat-http-route compiles route definitions to a
-wat-http-serve::Handler.** It owns no network code; no
+**wat-http-router compiles route definitions to a
+wat-http-server::Handler.** It owns no network code; no
 tokio; no hyper. It's pure wat: pattern matching on
 `Request.method` and `Request.path` to dispatch to the
 appropriate handler.
@@ -65,15 +65,15 @@ This is exactly the Sinatra/Rack relationship in Ruby.
 
 ## Where it lives
 
-**Single self-contained crate:** `wat-rs/crates/wat-http-route/`
+**Single self-contained crate:** `wat-rs/crates/wat-http-router/`
 per the arc-013 pattern.
 
 ```
-wat-rs/crates/wat-http-route/
+wat-rs/crates/wat-http-router/
   Cargo.toml           # depends on wat (../..), wat-macros,
-                       #   wat-http-serve (../wat-http-serve)
+                       #   wat-http-server (../wat-http-server)
   src/                 # (probably empty / minimal — pure wat)
-  wat/http/route/      # The DSL: define-app, route matching,
+  wat/http/router/      # The DSL: define-app, route matching,
                        #   path pattern parser, method dispatch
   wat-tests/           # wat-level tests
   tests/               # Rust harness wrapping wat-tests/
@@ -105,52 +105,52 @@ From the foundation-tier arcs (003-008) and arc 009:
 
 ## Cross-references
 
-- **arc 009 (wat-http-serve)** — the FOUNDATION this depends on.
-  Routes compile to a wat-http-serve::Handler; the DSL is
+- **arc 009 (wat-http-server)** — the FOUNDATION this depends on.
+  Routes compile to a wat-http-server::Handler; the DSL is
   syntactic sugar around the simpler primitive.
 - **arc 008 (wat-kwargs)** — the route declaration DSL uses
   kwargs heavily (`(:get "/path" :handler my-fn)`). Direct
   dependency.
 - **arc 007 (RemoteProgram)** — RemoteProgram is wat calling
-  OUT typed; wat-http-serve receives IN typed; wat-http-route
+  OUT typed; wat-http-server receives IN typed; wat-http-router
   organizes the IN side declaratively. Same closing-the-loop
   story as arc 009's cross-references.
-- **WAT-NETWORK.md** — same deployment story as wat-http-serve;
+- **WAT-NETWORK.md** — same deployment story as wat-http-server;
   this arc just makes the application code prettier.
 
 ## Status
 
 - **Captured:** 2026-05-03
-- **Naming:** locked via gaze; `wat-http-route` (verb-shaped;
-  scoped under `http-`; pairs cleanly with `wat-http-serve`)
+- **Naming:** locked via gaze; `wat-http-router` (verb-shaped;
+  scoped under `http-`; pairs cleanly with `wat-http-server`)
 - **Architecture:** sketched; design firms up via chat
   iteration
 - **Slice plan:** not yet sized
 - **Bar to graduate to a real wat-rs arc:**
-  1. arc 009 (wat-http-serve) has shipped slice 1 (or close)
+  1. arc 009 (wat-http-server) has shipped slice 1 (or close)
   2. arc 008 (wat-kwargs) has shipped its slice 1
   3. User signals "let's start"
 
 ## Why this is a separate arc
 
-Could wat-http-route live inside wat-http-serve? Yes. So why
+Could wat-http-router live inside wat-http-server? Yes. So why
 separate?
 
 Three reasons aligned with the four questions:
 
-1. **Honest layering.** wat-http-serve is the minimum
-   interface; wat-http-route is opinionated DSL. Honest to
+1. **Honest layering.** wat-http-server is the minimum
+   interface; wat-http-router is opinionated DSL. Honest to
    keep them at separate crates so users who want bare-bones
    handler composition don't pull in the routing DSL.
 
 2. **Simple shape.** Each crate does one thing. Same elegance
    as the Rack/Sinatra split in Ruby — Rack is the interface;
-   Sinatra is one of many DSLs that target Rack. wat-http-route
+   Sinatra is one of many DSLs that target Rack. wat-http-router
    is one of potentially many routing DSLs that could target
-   wat-http-serve. (Roda-equivalent? Hanami-equivalent? Any
+   wat-http-server. (Roda-equivalent? Hanami-equivalent? Any
    future routing DSL ships independently.)
 
 3. **Obvious dependency direction.** A wat application using
-   wat-http-route obviously depends on wat-http-serve; the
+   wat-http-router obviously depends on wat-http-server; the
    reverse is never true. Making this explicit at the crate
    boundary documents the relationship in the package graph.

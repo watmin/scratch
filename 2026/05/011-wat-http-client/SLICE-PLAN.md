@@ -3,7 +3,7 @@
 Sketch only. Not sized for shipping. The bar to graduate this
 arc into a real `wat-rs/docs/arc/...` arc is:
 
-1. arc 009 (wat-http-serve) has shipped slice 1 (so the shared
+1. arc 009 (wat-http-server) has shipped slice 1 (so the shared
    Request/Response types are firm)
 2. arc 007 (RemoteProgram) wire protocol decisions firm enough
    to know what wat-http-client must expose for it
@@ -29,7 +29,7 @@ gets a typed response back.
 - HTTP/1.1 + HTTP/2 (ALPN negotiated)
 - Default 30s timeout; `:timeout` kwarg overrides
 - Round-trip integration test: wat-http-client calls a real
-  wat-http-serve from arc 009; both parsing and serializing
+  wat-http-server from arc 009; both parsing and serializing
   the shared Request/Response types
 - ClientError taxonomy populated; tests cover ConnectError,
   Timeout, InvalidUrl

@@ -1,7 +1,7 @@
 # Scratch arc — wat-http-client: HTTP client (the other end of arc 009)
 #
 # Wat-side HTTP client built on reqwest (which is built on hyper).
-# Pairs with wat-http-serve (arc 009). Same Request/Response types;
+# Pairs with wat-http-server (arc 009). Same Request/Response types;
 # same plaintext-handler discipline (compression handled
 # transparently by the Rust client); same UDS-or-TCP transport
 # flexibility.
@@ -25,7 +25,7 @@ arc:
     - arc 007 (RemoteProgram) — typed RPC for wat-to-wat;
       built on wat-network primitives (mTLS, signed eval,
       digest forms)
-    - arc 009 (wat-http-serve) — server side; receive HTTP
+    - arc 009 (wat-http-server) — server side; receive HTTP
 
     Missing: the general-purpose HTTP client. RemoteProgram is
     too narrow (typed wat-to-wat); we need the everything-else
@@ -37,7 +37,7 @@ arc:
 
     LOCKED:
     - Name: wat-http-client (gaze-approved; client is the
-      universal noun for this role; pairs with wat-http-serve;
+      universal noun for this role; pairs with wat-http-server;
       same http- prefix discipline)
     - Layering: reqwest-based Rust shim at Layer 2; wat-side
       client interface at Layer 3
@@ -53,7 +53,7 @@ arc:
       (failure engineering principle)
 
     Application-tier arc; depends on:
-    - arc 009 (wat-http-serve) — for shared Request/Response
+    - arc 009 (wat-http-server) — for shared Request/Response
       types
     - arc 007 (RemoteProgram) — could sit ON TOP for the
       typed-wat-to-wat case
@@ -107,12 +107,12 @@ notes:
 # ─── State ───
 status: open (sketch; design firms up via chat)
 # Bar to graduate to a real wat-rs arc:
-#   1. arc 009 (wat-http-serve) has shipped slice 1 (so the
+#   1. arc 009 (wat-http-server) has shipped slice 1 (so the
 #      shared Request/Response types are firm)
 #   2. arc 007 (RemoteProgram) wire protocol decisions firm
 #      enough to know what wat-http-client must expose
 #   3. User signals "let's start"
 
 # Note: this arc is APPLICATION-TIER, not foundation-tier.
-# It depends on wat-http-serve (arc 009) for shared types and
+# It depends on wat-http-server (arc 009) for shared types and
 # may be a transport-layer dependency for RemoteProgram (007).

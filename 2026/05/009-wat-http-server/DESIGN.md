@@ -1,4 +1,4 @@
-# wat-http-serve — DESIGN
+# wat-http-server — DESIGN
 
 The Ruby Rack equivalent for wat. Minimal HTTP handler
 interface specification + Rust shim that uses tokio + hyper
@@ -28,10 +28,10 @@ For wat:
 
 ```scheme
 ;; The minimal handler signature
-(:wat::http::serve::Handler
-  (request :wat::http::serve::Request)
-  -> :wat::core::Result<:wat::http::serve::Response,
-                        :wat::http::serve::HandlerError>)
+(:wat::http::server::Handler
+  (request :wat::http::server::Request)
+  -> :wat::core::Result<:wat::http::server::Response,
+                        :wat::http::server::HandlerError>)
 ```
 
 A handler is a function. Period. Middleware are higher-order
@@ -42,7 +42,7 @@ is function composition. **Same elegance; wat-shaped.**
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│ LAYER 4 — wat-http-route                                      │
+│ LAYER 4 — wat-http-router                                      │
 │           (arc 010; the Sinatra DSL on top)                   │
 │           routing; path params; HTTP method dispatch          │
 └──────────────────────────┬────────────────────────────────────┘
@@ -50,7 +50,7 @@ is function composition. **Same elegance; wat-shaped.**
                            │ depends on Layer 3
                            ▼
 ┌───────────────────────────────────────────────────────────────┐
-│ LAYER 3 — wat-http-serve (THIS ARC)                           │
+│ LAYER 3 — wat-http-server (THIS ARC)                           │
 │           Handler / Middleware / Request / Response in wat    │
 │           Composition; error model; type contracts            │
 └──────────────────────────┬────────────────────────────────────┘
@@ -83,13 +83,13 @@ wat-vm handles application logic.
 ### Request type
 
 ```scheme
-(:wat::core::struct :wat::http::serve::Request
-  ((method   :wat::http::serve::Method)        ; :get :post :put :delete :patch ...
+(:wat::core::struct :wat::http::server::Request
+  ((method   :wat::http::server::Method)        ; :get :post :put :delete :patch ...
    (path     :wat::core::String)
    (query    :wat::core::HashMap<:String, :String>)
    (headers  :wat::core::HashMap<:String, :String>)
-   (body     :wat::http::serve::Body))         ; :bytes / :stream / :empty
-  "An HTTP request as seen by a wat-http-serve handler.
+   (body     :wat::http::server::Body))         ; :bytes / :stream / :empty
+  "An HTTP request as seen by a wat-http-server handler.
 
    Receives raw HTTP from the Rust shim; type-bridged into wat
    for handler consumption. All headers normalized to lowercase.
@@ -100,11 +100,11 @@ wat-vm handles application logic.
 ### Response type
 
 ```scheme
-(:wat::core::struct :wat::http::serve::Response
+(:wat::core::struct :wat::http::server::Response
   ((status   :wat::core::i64)                  ; 200, 404, 500, etc.
    (headers  :wat::core::HashMap<:String, :String>)
-   (body     :wat::http::serve::Body))
-  "An HTTP response emitted by a wat-http-serve handler.
+   (body     :wat::http::server::Body))
+  "An HTTP response emitted by a wat-http-server handler.
 
    The Rust shim serializes back to HTTP; status is the
    integer code; headers are name-value pairs (lowercase
@@ -114,10 +114,10 @@ wat-vm handles application logic.
 Constructors via wat-kwargs (arc 008) for ergonomics:
 
 ```scheme
-(:wat::http::serve::Response/ok :body "hello world")
-(:wat::http::serve::Response/not-found :body "user not found")
-(:wat::http::serve::Response/json :body data)
-(:wat::http::serve::Response/builder
+(:wat::http::server::Response/ok :body "hello world")
+(:wat::http::server::Response/not-found :body "user not found")
+(:wat::http::server::Response/json :body data)
+(:wat::http::server::Response/builder
   :status 418
   :headers (:wat::core::HashMap :String "x-extra" "metadata")
   :body "I'm a teapot")
@@ -126,7 +126,7 @@ Constructors via wat-kwargs (arc 008) for ergonomics:
 ### Handler signature
 
 ```scheme
-(:wat::http::serve::Handler
+(:wat::http::server::Handler
   (request :Request)
   -> :wat::core::Result<:Response, :HandlerError>)
 ```
@@ -138,13 +138,13 @@ class; no inheritance; no decorator. Just a function.
 
 ```scheme
 ;; Middleware: handler -> handler
-(:wat::http::serve::Middleware
+(:wat::http::server::Middleware
   (next :Handler)
   -> :Handler)
 
 ;; Concrete example: logging middleware
 (:wat::core::define
-  (:wat::http::serve::middleware::log
+  (:wat::http::server::middleware::log
     (next :Handler)
     -> :Handler)
   "Wrap a handler with request/response logging."
@@ -162,11 +162,11 @@ class; no inheritance; no decorator. Just a function.
 ;; Compose: middleware . middleware . middleware . handler
 (:wat::core::define
   (:my-app -> :Handler)
-  (:wat::http::serve::compose
+  (:wat::http::server::compose
     (:wat::core::vec :Middleware
-      :wat::http::serve::middleware::log
-      :wat::http::serve::middleware::compress
-      :wat::http::serve::middleware::cors)
+      :wat::http::server::middleware::log
+      :wat::http::server::middleware::compress
+      :wat::http::server::middleware::cors)
     :my-leaf-handler))
 ```
 
@@ -176,7 +176,7 @@ list around the leaf handler.
 ### Error model
 
 ```scheme
-(:wat::core::enum :wat::http::serve::HandlerError
+(:wat::core::enum :wat::http::server::HandlerError
   ((BadRequest      (message :String)))     ; 400 — client's fault
   ((Unauthorized    (message :String)))     ; 401
   ((Forbidden       (message :String)))     ; 403
@@ -248,7 +248,7 @@ what it returns.
 
 ## Two protocols on the same handler
 
-A wat-http-serve app can serve TWO PROTOCOLS over the same HTTP
+A wat-http-server app can serve TWO PROTOCOLS over the same HTTP
 endpoint:
 
 1. **Plain REST** for non-wat clients — JSON request/response;
@@ -259,7 +259,7 @@ endpoint:
 
 The handler logic is the same; the request/response formats
 differ; content-type negotiation determines which format is
-used per request. This means a single wat-http-serve
+used per request. This means a single wat-http-server
 deployment can serve BOTH non-wat clients (any language; any
 framework; standard HTTP) AND wat-network peers with full
 typed-cryptographic semantics.
@@ -272,7 +272,7 @@ layer; client-driven.
 
 The handler signature is invariant under transport choice. The
 listener is runtime configuration. This is the property that
-makes wat-http-serve genuinely deployment-agnostic.
+makes wat-http-server genuinely deployment-agnostic.
 
 The Rust shim (Layer 2) accepts any tokio listener that
 produces streams implementing `AsyncRead + AsyncWrite + Unpin`.
@@ -290,15 +290,15 @@ boundary.
 ### Configuration shape
 
 ```scheme
-(:wat::http::serve::serve
+(:wat::http::server::serve
   :handler :my-app
   :listeners (:wat::core::vec :Listener
-    (:Listener/uds :path "/var/run/wat-http-serve.sock"
+    (:Listener/uds :path "/var/run/wat-http-server.sock"
                    :perms 0o600)
     (:Listener/tcp :addr "127.0.0.1:8080")))
 ```
 
-A wat-http-serve deployment binds whatever listeners its
+A wat-http-server deployment binds whatever listeners its
 environment requires. The handler runs once, ignorant of which
 listener delivered each request.
 
@@ -314,7 +314,7 @@ In a service-mesh pod, the typical bindings are:
   UDS natively
 
 Notably absent: `0.0.0.0` TCP. Cross-pod traffic terminates at
-the istio sidecar, NOT at the wat-http-serve container. The
+the istio sidecar, NOT at the wat-http-server container. The
 app should not be reachable from outside the pod directly —
 absence of an external listener is itself a defense.
 
@@ -379,7 +379,7 @@ Content-Encoding negotiation and codec for the wire.
 
 **Outbound (response → client):**
 ```
-wat handler → wat-http-serve (plaintext bytes; no Content-Encoding)
+wat handler → wat-http-server (plaintext bytes; no Content-Encoding)
   → UDS → sidecar (compresses per client Accept-Encoding;
                    gzip / brotli / zstd)
   → TLS → wire
@@ -388,7 +388,7 @@ wat handler → wat-http-serve (plaintext bytes; no Content-Encoding)
 **Inbound (request → handler):**
 ```
 wire → TLS → sidecar (decompresses if Content-Encoding present)
-  → UDS → wat-http-serve (plaintext bytes)
+  → UDS → wat-http-server (plaintext bytes)
   → wat handler (sees decoded body always)
 ```
 
@@ -440,7 +440,7 @@ Opt-in middleware accommodates this without forcing it:
 :my-handler
 
 ;; Opt-in: app-level compression with response caching
-(:wat::http::serve::compose
+(:wat::http::server::compose
   (:wat::core::vec :Middleware
     (:middleware/compress-cached
       :algorithm :brotli
@@ -456,7 +456,7 @@ real CPU. For everything else, sidecar handles it.
 
 ### Static assets — pre-compress at build time
 
-Out of scope for wat-http-serve, but worth flagging the
+Out of scope for wat-http-server, but worth flagging the
 pattern: a sibling `wat-http-static` crate would pre-compute
 `.gz`, `.br`, `.zst` variants at build time and serve cached
 compressed bytes per `Accept-Encoding`. This is the
@@ -470,7 +470,7 @@ shape for asset servers.
   Mitigations are application-layer: don't mix secrets +
   user input in compressed responses; use length padding;
   rate-limit. This applies to ANY HTTP framework with
-  compression and isn't specific to wat-http-serve. Worth
+  compression and isn't specific to wat-http-server. Worth
   documenting because deployment at scale will surface it.
 - **CRIME (2012)** was TLS-level compression of secret-bearing
   traffic. **Irrelevant here** — we never compress at the TLS
@@ -508,7 +508,7 @@ transport choices made explicit:
 │ k8s pod                                               │
 │                                                       │
 │   ┌─────────────────────┐    ┌───────────────────┐    │
-│   │ istio sidecar        │    │ wat-http-serve   │    │
+│   │ istio sidecar        │    │ wat-http-server   │    │
 │   │ - mTLS termination   │UDS │   container       │   │
 │   │ - SPIFFE identity    ├────┤ - UDS listener    │   │
 │   │ - L4/L7 authz        │    │   (from sidecar)  │   │
@@ -552,13 +552,13 @@ A. **Body streaming vs full-buffer.** For small bodies,
    Lean: buffer-only for slice 1; streaming as slice 2 or
    later when a real consumer needs it.
 
-B. **WebSocket / SSE / HTTP/2 push.** wat-http-serve is
+B. **WebSocket / SSE / HTTP/2 push.** wat-http-server is
    request/response. Streaming protocols (WebSocket; SSE;
    HTTP/2 push) are different shapes. Out of scope for v1?
    Lean: yes, out of scope; could be a sibling arc later.
 
 C. **Health check / metrics endpoints.** Standard practice
-   for k8s deployments. Does wat-http-serve include a
+   for k8s deployments. Does wat-http-server include a
    built-in `/healthz` or `/metrics` endpoint, or leave it
    to the user? Lean: leave to user; provide convenience
    middleware (log; cors; compress) but not opinionated
@@ -566,16 +566,16 @@ C. **Health check / metrics endpoints.** Standard practice
 
 ## What's NOT in scope
 
-- **Routing** — that's arc 010 (wat-http-route). This arc is
+- **Routing** — that's arc 010 (wat-http-router). This arc is
   just the handler interface + middleware + Rust shim.
 - **HTTP client** — that's RemoteProgram (arc 007). This arc
   is server-side only.
 - **TLS / mTLS termination** — istio sidecar (or a similar
-  service mesh) handles it. The wat-http-serve container
+  service mesh) handles it. The wat-http-server container
   receives plain HTTP locally (over UDS or TCP loopback) with
   verified identity headers.
 - **WebSocket / SSE / streaming protocols** — request/response
   only for v1.
 - **Authentication / authorization** — application-layer
-  concerns; user implements via middleware. wat-http-serve
+  concerns; user implements via middleware. wat-http-server
   provides the middleware mechanism; doesn't ship auth.

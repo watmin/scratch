@@ -1,9 +1,9 @@
-# wat-http-route — SLICE-PLAN
+# wat-http-router — SLICE-PLAN
 
 Sketch only. Not sized for shipping. The bar to graduate this
 arc into a real `wat-rs/docs/arc/...` arc is:
 
-1. arc 009 (wat-http-serve) has shipped slice 1 (or close)
+1. arc 009 (wat-http-server) has shipped slice 1 (or close)
 2. arc 008 (wat-kwargs) has shipped slice 1
 3. User signals "let's start"
 
@@ -18,9 +18,9 @@ substrate-as-it-then-is.
 correctly.
 
 **Done when:**
-- `wat-rs/crates/wat-http-route/` exists with arc-013 layout
-- `wat-http-route::define-app` macro accepts `(:get path :handler h)`
-  forms and compiles to a wat-http-serve::Handler
+- `wat-rs/crates/wat-http-router/` exists with arc-013 layout
+- `wat-http-router::define-app` macro accepts `(:get path :handler h)`
+  forms and compiles to a wat-http-server::Handler
 - `:get`, `:post`, `:put`, `:patch`, `:delete`, `:head`, `:options`,
   `:any` method dispatch work
 - Static paths only (no `:param` syntax yet)
@@ -92,7 +92,7 @@ custom error handlers for 404/500 etc.
 - Performance: routing decision <1µs for apps with 100 routes
   (microbenchmarks committed)
 - Documentation: complete reference for all DSL forms
-- One concrete deployed application using wat-http-route
+- One concrete deployed application using wat-http-router
 - Cookbook of common patterns (REST resource, nested resource,
   auth-gated admin)
 
@@ -104,11 +104,11 @@ custom error handlers for 404/500 etc.
   if needed
 - **Template rendering** — sibling crate if needed
 - **Sessions / cookies / auth** — application-layer middleware
-  via wat-http-serve middleware mechanism
+  via wat-http-server middleware mechanism
 - **Live route reloading** — out of scope; routes are
   compile-time
 - **OpenAPI / swagger generation** — sibling crate if needed
-  (wat-http-route's route table is a structured value; a doc
+  (wat-http-router's route table is a structured value; a doc
   generator could read it)
 
 ---

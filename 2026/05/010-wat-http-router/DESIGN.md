@@ -1,8 +1,8 @@
-# wat-http-route — DESIGN
+# wat-http-router — DESIGN
 
 The Sinatra equivalent for wat. A routing DSL that compiles
 declarative route definitions into a single
-`wat-http-serve::Handler` (arc 009).
+`wat-http-server::Handler` (arc 009).
 
 ---
 
@@ -37,7 +37,7 @@ named parameters.
 For wat:
 
 ```scheme
-(:wat::http::route::define-app :my-app
+(:wat::http::router::define-app :my-app
   (:get "/users/:id"
     :handler (:wat::core::lambda
       ((req :Request) -> :Result<:Response, :HandlerError>)
@@ -54,7 +54,7 @@ For wat:
 ```
 
 Same elegance; wat-shaped. The DSL is a wat macro that expands
-to a `wat-http-serve::Handler` whose body is a pattern match on
+to a `wat-http-server::Handler` whose body is a pattern match on
 (method, path-pattern).
 
 ## Compilation strategy
@@ -71,7 +71,7 @@ Compiled output:
 ```scheme
 ;; What (define-app ...) produces under the hood
 (:wat::core::define
-  (:my-app -> :wat::http::serve::Handler)
+  (:my-app -> :wat::http::server::Handler)
   (:wat::core::lambda
     ((req :Request) -> :Result<:Response, :HandlerError>)
     (:wat::core::match (:Request/method req) (:Request/path req)
@@ -123,19 +123,19 @@ match expression.
 
 ## Subroute composition (mounting)
 
-Sinatra supports nesting via inheritance + `use`. wat-http-route
+Sinatra supports nesting via inheritance + `use`. wat-http-router
 provides explicit composition:
 
 ```scheme
-(:wat::http::route::define-app :api-v1
+(:wat::http::router::define-app :api-v1
   (:get "/health" :handler health)
   (:get "/users/:id" :handler get-user))
 
-(:wat::http::route::define-app :api-v2
+(:wat::http::router::define-app :api-v2
   (:get "/health" :handler health-v2)
   (:post "/orders" :handler create-order))
 
-(:wat::http::route::define-app :main-app
+(:wat::http::router::define-app :main-app
   (:mount "/api/v1" :app :api-v1)
   (:mount "/api/v2" :app :api-v2)
   (:get "/" :handler index-handler))
@@ -155,13 +155,13 @@ The DSL accommodates per-route middleware via a kwarg:
 ```scheme
 (:get "/admin/dashboard"
   :middleware (:wat::core::vec :Middleware
-                :wat::http::serve::middleware::require-auth
-                :wat::http::serve::middleware::require-admin)
+                :wat::http::server::middleware::require-auth
+                :wat::http::server::middleware::require-admin)
   :handler admin-dashboard)
 ```
 
 Per-route middleware compose with app-level middleware (passed
-to `define-app` or applied via wat-http-serve's `compose`
+to `define-app` or applied via wat-http-server's `compose`
 combinator).
 
 ## Error handling
@@ -174,7 +174,7 @@ When no route matches:
 
 When a route's handler returns `Err`:
 
-- The error propagates up to wat-http-serve, which converts it
+- The error propagates up to wat-http-server, which converts it
   to an HTTP response per the standard error model.
 - Routes can override error rendering via
   `(:error-handler :for :NotFound :handler ...)` for custom
@@ -216,13 +216,13 @@ variants from function signatures. The route DSL compiles
 each `(:get path :handler h ...)` form into a route record
 with optional fields populated from the kwargs.
 
-## Connection to arc 009 (wat-http-serve)
+## Connection to arc 009 (wat-http-server)
 
 A complete app:
 
 ```scheme
 ;; Define routes
-(:wat::http::route::define-app :my-app
+(:wat::http::router::define-app :my-app
   (:get  "/health" :handler health)
   (:post "/users"  :handler create-user)
   (:get  "/users/:id" :handler get-user))
@@ -230,21 +230,21 @@ A complete app:
 ;; Apply app-level middleware
 (:wat::core::define
   (:my-app-with-middleware -> :Handler)
-  (:wat::http::serve::compose
+  (:wat::http::server::compose
     (:wat::core::vec :Middleware
-      :wat::http::serve::middleware::log
-      :wat::http::serve::middleware::compress)
+      :wat::http::server::middleware::log
+      :wat::http::server::middleware::compress)
     :my-app))
 
-;; Run via wat-http-serve
-(:wat::http::serve::serve
+;; Run via wat-http-server
+(:wat::http::server::serve
   :handler :my-app-with-middleware
   :port 8080)
 ```
 
-The route DSL produces a wat-http-serve::Handler; that handler
-gets composed with middleware via wat-http-serve combinators;
-the result is served via wat-http-serve's listener. **Each
+The route DSL produces a wat-http-server::Handler; that handler
+gets composed with middleware via wat-http-server combinators;
+the result is served via wat-http-server's listener. **Each
 arc owns one concern; together they compose.**
 
 ## Open architectural questions
@@ -268,25 +268,25 @@ D. **Static file serving.** Sinatra has `set :public, ...`.
 
 ## What's NOT in scope
 
-- **HTTP listener** — that's wat-http-serve. This arc only
+- **HTTP listener** — that's wat-http-server. This arc only
   produces a handler.
 - **Static file serving** — separate crate if needed.
 - **Template rendering** — separate crate if needed.
 - **Sessions / cookies / auth** — application-layer middleware,
   not routing concerns.
 - **WebSocket / SSE** — different shape; sibling arc to
-  wat-http-serve.
+  wat-http-server.
 
 ## Pure-wat philosophy
 
-Unlike wat-http-serve (which has a real Rust shim layer),
-wat-http-route is pure wat. The crate may have NO Rust source
+Unlike wat-http-server (which has a real Rust shim layer),
+wat-http-router is pure wat. The crate may have NO Rust source
 code at all. The pattern matcher, the dispatch table, the
 mount mechanism — all expressible in wat-vm.
 
 This is intentional. Routing logic is computation, not IO. It
 should live in the layer that handles computation. The
-substrate (wat-rs + wat-http-serve + arc 008's kwargs) is
+substrate (wat-rs + wat-http-server + arc 008's kwargs) is
 expressive enough to handle it.
 
 If we find ourselves reaching for Rust code in this crate, that's

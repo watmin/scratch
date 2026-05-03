@@ -7,7 +7,7 @@ User direction (2026-05-03):
 
 Naming locked: `wat-http-client` (gaze: `client` is the
 universal noun for this role; pairs cleanly with
-`wat-http-serve`; same `http-` prefix discipline as 009/010).
+`wat-http-server`; same `http-` prefix discipline as 009/010).
 The server/client pair is a universal pattern; using the
 universal nouns keeps the substrate readable across language
 boundaries.
@@ -16,9 +16,9 @@ boundaries.
 
 ## What wat-http-client is
 
-The other end of `wat-http-serve` (arc 009). A wat-side
+The other end of `wat-http-server` (arc 009). A wat-side
 HTTP client that lets a wat program make outbound HTTP
-requests — to other wat-http-serve apps, to third-party REST
+requests — to other wat-http-server apps, to third-party REST
 APIs, to any HTTP endpoint on the public web.
 
 A client invocation is a function call:
@@ -78,7 +78,7 @@ interface; Layer 4 is application code that uses it.
 
 **Single self-contained crate:** `wat-rs/crates/wat-http-client/`
 per the arc-013 pattern. Same shape as wat-fmt / wat-lint /
-wat-cov / wat-doc / wat-http-serve.
+wat-cov / wat-doc / wat-http-server.
 
 ```
 wat-rs/crates/wat-http-client/
@@ -114,7 +114,7 @@ From the foundation-tier arcs (003-008) and arcs 009/010:
 
 ## Cross-references
 
-- **arc 009 (wat-http-serve)** — the natural pair. Same Request
+- **arc 009 (wat-http-server)** — the natural pair. Same Request
   and Response types where possible; same plaintext-handler
   discipline; same UDS-or-TCP transport flexibility.
 - **arc 007 (RemoteProgram)** — sits ON TOP of wat-http-client
@@ -122,7 +122,7 @@ From the foundation-tier arcs (003-008) and arcs 009/010:
   this typed function on a wat-network peer"; wat-http-client
   is "make this HTTP request to this URL." Different
   abstraction levels; complementary.
-- **arc 010 (wat-http-route)** — the routing DSL on top of
+- **arc 010 (wat-http-router)** — the routing DSL on top of
   arc 009. wat-http-client doesn't have a comparable "routing"
   layer — clients don't route — but config-pattern crates
   (an `http-client-builder` or similar) could ship later if
@@ -135,12 +135,12 @@ From the foundation-tier arcs (003-008) and arcs 009/010:
 
 - **Captured:** 2026-05-03
 - **Naming:** locked via gaze; `wat-http-client` (universal
-  noun; pairs with `wat-http-serve`)
+  noun; pairs with `wat-http-server`)
 - **Architecture:** sketched; design firms up via chat
   iteration
 - **Slice plan:** not yet sized
 - **Bar to graduate to a real wat-rs arc:**
-  1. arc 009 (wat-http-serve) has shipped slice 1 (so the
+  1. arc 009 (wat-http-server) has shipped slice 1 (so the
      Request/Response types are firm and shareable)
   2. arc 007 (RemoteProgram) wire protocol decisions firm enough
      to know what wat-http-client needs to expose for it

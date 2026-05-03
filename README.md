@@ -117,8 +117,8 @@ thread, move it into a new arc directory and seed
 2026/05/006-wat-doc/                             foundation tier — documentation
 2026/05/007-remote-program/                      app tier — typed remote calls (in-progress design)
 2026/05/008-kwarg-macros/                        substrate-tier pattern; remote-program dep
-2026/05/009-wat-http-serve/                      app tier — Rack analog; tokio+hyper shim + minimal handler interface
-2026/05/010-wat-http-route/                      app tier — Sinatra analog; routing DSL on top of arc 009
+2026/05/009-wat-http-server/                      app tier — Rack analog; tokio+hyper shim + minimal handler interface
+2026/05/010-wat-http-router/                      app tier — Sinatra analog; routing DSL on top of arc 009
 2026/05/011-wat-http-client/                     app tier — HTTP client (the other end of arc 009); reqwest-based
 ```
 

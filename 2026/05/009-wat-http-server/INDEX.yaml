@@ -1,12 +1,12 @@
-# Scratch arc — wat-http-serve: minimal HTTP handler interface
+# Scratch arc — wat-http-server: minimal HTTP handler interface
 #
 # Ruby Rack equivalent for wat. Sits on top of tokio + hyper;
 # exposes a minimal handler signature; everything composes from
-# it. Foundation for arc 010 (wat-http-route, the Sinatra
+# it. Foundation for arc 010 (wat-http-router, the Sinatra
 # equivalent).
 
 arc:
-  slug: wat-http-serve
+  slug: wat-http-server
   date: 2026-05-03
   triggered-by: |
     User direction:
@@ -24,18 +24,21 @@ arc:
     > i think we can also build something like a sinatra on top
     > of it?.. those two pair so well..."
 
-    User direction on naming after applying /gaze:
+    User direction on initial naming (verb form) after applying /gaze:
 
     > "i think we must name them http.... serve could collide
     > with... anything.. and route... also collidable..
     > wat-http-serve and wat-http-route feel good?.."
+
+    [Verbs were locked initially. See captured-beats below for
+    the 2026-05-03 rename to noun form.]
 
   outcome: |
     Two arcs opened (009 + 010). This arc (009) is the
     foundation: the minimal handler interface specification.
 
     LOCKED:
-    - Name: wat-http-serve (gaze-approved; http- prefix
+    - Name: wat-http-server (gaze-approved; http- prefix
       prevents collision; serve verb describes what it enables)
     - Layering: Rust shim with tokio+hyper at Layer 2; wat-side
       handler interface at Layer 3
@@ -46,7 +49,7 @@ arc:
 
     Application-tier arc; not foundation tier. Depends on
     RemoteProgram's wire protocol decisions being firm enough
-    (Q-channel, EDN format, error taxonomy) that wat-http-serve
+    (Q-channel, EDN format, error taxonomy) that wat-http-server
     can either expose plain REST or the wat-wire format
     natively.
 
@@ -108,6 +111,50 @@ captured-beats:
       - README.md: added transport-is-configuration paragraph
         to the architecture-in-one-paragraph section
 
+  - date: 2026-05-03
+    topic: rename — verb form to noun form (serve → server, route → router)
+    triggered-by: |
+      User direction (after arc 011 wat-http-client opened):
+
+      > "so.. we should rename serve => server and route =>
+      > router ?... that better aligns (literally char count)
+      > with client?..."
+
+    captured: |
+      User noticed the verb-form / noun-form asymmetry once the
+      third HTTP arc (wat-http-client) landed. The original
+      naming locked verbs (serve, route) before the third arc
+      surfaced the inconsistency.
+
+      Applied /gaze:
+      - server / router / client is the canonical trio across
+        every framework and every language (hyper::Server,
+        axum::Server, http.Server, Express, Sinatra, requests,
+        reqwest, fetch, Net::HTTP)
+      - Char-count alignment (6/6/6) gives a coherent visual
+        rhythm for the trio
+      - Crates are nouns; users invoke them; naming should
+        match what the artifacts ARE
+      - Honest edge to nouns; symmetric trio passes four
+        questions cleanly
+
+      DECIDED:
+      - 009: wat-http-serve → wat-http-server
+      - 010: wat-http-route → wat-http-router
+      - 011: wat-http-client (unchanged)
+      - The function name `serve` (inside the server crate) stays
+        as a verb — the namespace clarifies what's being served:
+        :wat::http::server::serve
+
+      Renamed:
+      - directory 009-wat-http-serve → 009-wat-http-server
+      - directory 010-wat-http-route → 010-wat-http-router
+      - all in-file references in 009/010/011 (README, DESIGN,
+        SLICE-PLAN); the historical user quote on the original
+        verb-form lock is preserved verbatim in the
+        triggered-by section above
+      - scratch root README.md arc listing
+
 conventions:
   - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
   - same shape as 003-008 (README/INDEX/DESIGN/SLICE-PLAN)
@@ -121,9 +168,9 @@ notes:
     captured: 2026-05-03
     role: orientation
     summary: |
-      Top-level pointer. What wat-http-serve is (Rack analog),
+      Top-level pointer. What wat-http-server is (Rack analog),
       the four-layer architecture, where it lives
-      (wat-rs/crates/wat-http-serve/), reading order,
+      (wat-rs/crates/wat-http-server/), reading order,
       cross-references to arc 010 + RemoteProgram + wat-kwargs +
       WAT-NETWORK deployment.
 
@@ -135,7 +182,7 @@ notes:
       interface; Rust shim with tokio+hyper for Layer 2; wat-side
       handler signature, middleware as handler-wrappers,
       Request/Response types, error model. Connection to
-      wat-network deployment (istio sidecar in front; wat-http-serve
+      wat-network deployment (istio sidecar in front; wat-http-server
       app does signed payload validation behind it). Connection
       to Q-channel (this arc's wire protocol can be plain REST OR
       the wat-wire Ok/Err format).

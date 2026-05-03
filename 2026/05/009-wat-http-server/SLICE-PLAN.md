@@ -1,10 +1,10 @@
-# wat-http-serve — SLICE-PLAN
+# wat-http-server — SLICE-PLAN
 
 Sketch only. Not sized for shipping. The bar to graduate this
 arc into a real `wat-rs/docs/arc/...` arc is:
 
 1. RemoteProgram (007) wire protocol decisions firm enough
-   that wat-http-serve can either expose plain REST or the
+   that wat-http-server can either expose plain REST or the
    wat-wire format coherently
 2. wat-fmt slice 1 has shipped (so the established
    crate-shipping pattern is real)
@@ -23,11 +23,11 @@ request; returns a response. Rust shim handles the network
 boundary.
 
 **Done when:**
-- `wat-rs/crates/wat-http-serve/` exists with arc-013 layout
-- `wat-http-serve::Handler` / `Request` / `Response` / `HandlerError`
+- `wat-rs/crates/wat-http-server/` exists with arc-013 layout
+- `wat-http-server::Handler` / `Request` / `Response` / `HandlerError`
   types defined in wat
 - Rust shim using tokio + hyper accepts HTTP requests on a
-  configurable port; converts to `wat-http-serve::Request`;
+  configurable port; converts to `wat-http-server::Request`;
   invokes a wat handler via wat-vm; serializes response
 - Echo handler in wat-tests; integration test using a real
   HTTP client (reqwest) against the real shim
@@ -48,8 +48,8 @@ boundary.
 **Goal:** middleware as handler-wrappers compose cleanly.
 
 **Done when:**
-- `wat-http-serve::Middleware` type alias for handler → handler
-- `wat-http-serve::compose` combinator folds middleware list
+- `wat-http-server::Middleware` type alias for handler → handler
+- `wat-http-server::compose` combinator folds middleware list
   around a leaf handler
 - Three convenience middlewares ship in the crate:
   - `middleware::log` — request/response logging
@@ -69,7 +69,7 @@ correctly via the tokio runtime; the wat-vm dispatches each to
 an independent handler invocation without state corruption.
 
 **Done when:**
-- `wat-http-serve::serve` spawns hyper service on tokio runtime
+- `wat-http-server::serve` spawns hyper service on tokio runtime
 - Concurrent integration test (100+ simultaneous requests)
   passes with no state corruption
 - Per-request timeout configurable
@@ -84,7 +84,7 @@ re-entrancy story being firm.
 
 ## Slice 4 — Q-channel wat-wire format
 
-**Goal:** wat-http-serve apps can serve BOTH plain REST AND
+**Goal:** wat-http-server apps can serve BOTH plain REST AND
 the wat-wire format on the same listener; content-type
 negotiation determines which.
 
@@ -107,13 +107,13 @@ protocol primitives.
 
 ## Slice 5 — Production deployment validation
 
-**Goal:** wat-http-serve runs in a real k8s pod behind istio
+**Goal:** wat-http-server runs in a real k8s pod behind istio
 for at least one concrete application.
 
 **Done when:**
-- Dockerfile + helm chart shipped in `wat-rs/deploy/wat-http-serve/`
+- Dockerfile + helm chart shipped in `wat-rs/deploy/wat-http-server/`
   (or a sibling repo if appropriate)
-- Pod runs istio sidecar in front; wat-http-serve container
+- Pod runs istio sidecar in front; wat-http-server container
   receives plain HTTP locally; signed payload validation in
   application layer
 - One concrete deployed application; smoke tests pass

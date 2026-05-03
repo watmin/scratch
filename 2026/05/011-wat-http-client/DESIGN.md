@@ -49,11 +49,11 @@ in a wat-side interface and dispatches via the wat-vm.
   :url "https://api.example.com/users/42"   ; required
   :headers (:wat::core::HashMap :String     ; optional
              "accept" "application/json")
-  :body (:wat::http::serve::Body/empty)     ; optional; default empty
+  :body (:wat::http::server::Body/empty)     ; optional; default empty
   :timeout (:wat::time::Duration/seconds 30) ; optional; default 30s
   :follow-redirects? true                   ; optional; default true
   :max-redirects 10)                        ; optional; default 10
-;; => :Result<:wat::http::serve::Response, :ClientError>
+;; => :Result<:wat::http::server::Response, :ClientError>
 ```
 
 This is the **only** public function. Everything else is types,
@@ -78,13 +78,13 @@ Sugar.
 
 ```scheme
 ;; SHARED with arc 009 — same struct, both crates use it
-:wat::http::serve::Request
-:wat::http::serve::Response
-:wat::http::serve::Body
-:wat::http::serve::Method
+:wat::http::server::Request
+:wat::http::server::Response
+:wat::http::server::Body
+:wat::http::server::Method
 ```
 
-The types live in arc 009's `wat/http/serve/` module; arc 011
+The types live in arc 009's `wat/http/server/` module; arc 011
 imports them. This is the right shape because:
 
 - The Request a client builds is structurally the Request a
@@ -297,7 +297,7 @@ configuration but inherit as defaults.
 
 ## Cross-references
 
-- **arc 009 (wat-http-serve)** — shared Request/Response
+- **arc 009 (wat-http-server)** — shared Request/Response
   types live there; client imports them
 - **arc 007 (RemoteProgram)** — could sit ON TOP of
   wat-http-client for the typed-wat-to-wat case (RemoteProgram
@@ -305,7 +305,7 @@ configuration but inherit as defaults.
   delivers it; result deserializes back). Or RemoteProgram
   could have its own transport. To be decided when arc 007
   firms up.
-- **arc 010 (wat-http-route)** — server-side routing; clients
+- **arc 010 (wat-http-router)** — server-side routing; clients
   don't route. No direct dependency.
 - **WAT-NETWORK.md** — wat-http-client is a building block of
   the wat-network. Combined with the local sidecar's mTLS +
