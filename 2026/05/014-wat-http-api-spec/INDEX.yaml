@@ -1,0 +1,146 @@
+# Scratch arc — wat-http-api-spec: single source of truth for HTTP API contracts
+#
+# Foundation crate for the wat-http-api-{server,client} pair.
+# The wat equivalent of OpenAPI/Swagger + Smithy. Lets users
+# declare operations, shapes, errors, decorations once; both
+# server and client consume the same compiled spec.
+#
+# The structural property: when both sides derive from the
+# same spec, shape drift becomes structurally impossible.
+
+arc:
+  slug: wat-http-api-spec
+  date: 2026-05-03
+  triggered-by: |
+    User direction:
+
+    > "i think we should model out another pair from this...
+    >
+    > wat-http-api-spec wat-http-api-server wat-http-api-client
+    >
+    > wat-http-api-spec => like swagger.. consume this to produce
+    > an api spec that both server and client can use"
+
+    > "think on how aws uses their json defs for api modeling...
+    > i want something like that... swagger... openapi... these
+    > are the things to model here"
+
+    User restated the design after assistant clarified:
+
+    > "user consume wat-http-api-spec, produces a create
+    > 'my-http-api' who provides the shapes. user implements an
+    > api server crate using those shapes plus the http-router
+    > and a client http crate using those shapes to query the
+    > server..."
+
+    > "the http server layer... it leverages the nature of the
+    > api spec to auto generate routes and errors.. they are
+    > qualified in the user's spec crate.. same for the http
+    > client...."
+
+    > "the user must still define /what/ happens in those
+    > operations with those shapes... as they must for when they
+    > are consuming or requesting them... but we can provide a
+    > paved road with good practices here?..."
+
+    > "edn goes in, edn goes out, edn describes what goes in,
+    > edn describes what goes out.... the user just needs to
+    > think in terms of data flow and the http-api stuff can
+    > handle input validation and whatever..."
+
+    > "but its built on our sinatra-esque server, users can shim
+    > in whatever middle way they want... the http-api stuff is
+    > just a middleware for routes and validations"
+
+  outcome: |
+    Three arcs opened (014/015/016). This arc (014) is the
+    foundation: the spec primitive both server and client consume.
+
+    LOCKED:
+    - Name: wat-http-api-spec (http- prefix keeps HTTP family;
+      api- prefix differentiates from bare wat-http-server;
+      spec is universal noun for what this produces)
+    - Foundation crate; both 015 and 016 depend on it
+    - Spec is wat code; compiles to typed wat value at compile
+      time; both server and client reference the same value
+    - Shapes/refined types/rules delegated to wat-schema (arc 013)
+    - Operations carry: method, path, input shape, output shape,
+      errors, auth requirements, idempotency hint, cacheability,
+      rate-limit metadata, description
+    - EDN as wire format (wat-native); JSON via wat-edn for
+      external clients (same content-type negotiation pattern as
+      wat-http-server)
+
+    THE LOAD-BEARING ARGUMENT (structural drift impossibility):
+
+    When server and client both derive from the same compiled
+    spec, shape drift becomes structurally impossible. The most
+    common production bug class in API-driven systems (client
+    expects field X; server renamed it; runtime explosion) is
+    structurally unrepresentable.
+
+    Per four questions: ✅✅✅ Honest at the architectural level.
+    The spec IS the source of truth (not "should be"). Validation
+    runs against the spec on both sides. Drift requires
+    inconsistent compilation, which Cargo + the spec crate's
+    typed exports make impossible.
+
+    Slice plan not yet sized; design firms up via chat iteration.
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - same shape as 003-013 (README/INDEX/DESIGN/SLICE-PLAN)
+  - capture user's verbatim direction at decision points
+  - inherit conventions from prior arcs (four questions,
+    arc-013 crate pattern, dependency doctrine, failure
+    engineering)
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-03
+    role: orientation
+    summary: |
+      Top-level pointer. What wat-http-api-spec is (single source
+      of truth for HTTP API contracts; OpenAPI+Smithy parallel),
+      the structural-drift-impossibility property, where it
+      lives, layering with arcs 015/016, sketch of a spec
+      declaration.
+
+  - file: INDEX.yaml
+    captured: 2026-05-03
+    role: catalog
+    summary: This file. Beat-by-beat capture and arc status.
+
+  - file: DESIGN.md
+    captured: 2026-05-03
+    role: architecture
+    summary: |
+      Architecture in detail: spec compilation pipeline, type
+      bridging from wat declarations to server/client consumers,
+      decoration taxonomy (auth, idempotency, rate limits, etc.),
+      error model, cross-crate dependency contract, integration
+      with wat-schema, the structural-drift property argued from
+      compilation guarantees.
+
+  - file: SLICE-PLAN.md
+    captured: 2026-05-03
+    role: shipping plan
+    summary: |
+      Sketch slices: spec-declaration DSL; operation registry;
+      decoration support; error variant taxonomy; type bridging
+      for server/client; doc generator stubs.
+
+# ─── State ───
+status: open (sketch; design firms up via chat)
+# Bar to graduate to a real wat-rs arc:
+#   1. arc 013 (wat-schema) has shipped slice 1 (so refined types,
+#      shapes, validation are available to compose into operations)
+#   2. arc 010 (wat-http-router) has shipped slice 1 (so the
+#      server-side consumer has routing to compose with)
+#   3. User signals "let's start"
+
+# Note: this arc is FOUNDATION-TIER for the api-* family. It's
+# the same kind of "shared contract" role that wat-schema plays
+# at the substrate level — both are foundations consumed by
+# multiple crates. arcs 015 and 016 explicitly depend on this.

@@ -133,6 +133,9 @@ thread, move it into a new arc directory and seed
 2026/05/011-wat-http-client/                     app tier — HTTP client (the other end of arc 009); reqwest-based
 2026/05/012-wat-repl/                            foundation tier — interactive evaluator; foundation under wat-pause (Ruby's irb-equivalent)
 2026/05/013-wat-schema/                          substrate tier — declarative shape enforcement at boundaries (positive security; the WAF replacement)
+2026/05/014-wat-http-api-spec/                   foundation tier — single source of truth for HTTP API contracts (OpenAPI/Smithy parallel)
+2026/05/015-wat-http-api-server/                 app tier — spec-driven server skeleton; opinionated middleware on wat-http-router
+2026/05/016-wat-http-api-client/                 app tier — spec-driven typed client SDK; opinionated layer on wat-http-client
 ```
 
 The `2026/05/003-006` arcs together form the **foundation
