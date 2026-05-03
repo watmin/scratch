@@ -408,11 +408,48 @@ captured-beats:
       a first-class object that can be manipulated like anything
       else.
 
-      SUBSTRATE GAP — TODO: the user's "merge defaults +
-      overrides" pattern (load-bearing for option-bag composition)
-      needs a :wat::core::merge-or-equivalent primitive. Not
-      currently in wat-core verb set (assoc/dissoc/get/contains?/
-      keys/values/empty?/length per wat-rs/docs/USER-GUIDE.md).
+      MERGE — what it actually is (sharpened by user 2026-05-03):
+
+        > "what is merge here.. is this just a foldl expr?..."
+
+      Yes. Merge is NOT a substrate primitive — it's a composition
+      of (foldl + keys + get + assoc), all of which wat-core already
+      ships. The framing of "missing primitive" was wrong; it's a
+      missing stdlib helper.
+
+      The shape:
+
+        ;; Binary merge: fold over b's keys, assoc into a
+        (:wat::core::define
+          (:my-merge<K,V> (a :HashMap<K,V>) (b :HashMap<K,V>)
+            -> :HashMap<K,V>)
+          (:wat::core::foldl
+            a
+            (:wat::core::keys b)
+            (:wat::core::lambda
+              ((acc :HashMap<K,V>) (k :K))
+              (:wat::core::match (:wat::core::get b k)
+                ((:Some v) (:wat::core::assoc acc k v))
+                (:None     acc)))))   ; impossible — k from b's keys
+
+        ;; Multi-merge (3+ maps; later overrides): foldl of binary
+        (:wat::core::define
+          (:my-merge-many<K,V> (maps :Vec<HashMap<K,V>>)
+            -> :HashMap<K,V>)
+          (:wat::core::match maps
+            (:[]              (:wat::core::HashMap :(K,V)))
+            (:[first ...rest]
+              (:wat::core::foldl first rest :my-merge<K,V>))))
+
+      Two layers, both folds. Inner: fold over one map's keys.
+      Outer: fold over the list of maps with the binary merge.
+
+      The substrate parts that exist (per wat-rs USER-GUIDE):
+      - :wat::core::foldl  — left fold over Vec<T>
+      - :wat::core::keys   — HashMap<K,V> -> Vec<K>  (arc 058)
+      - :wat::core::get    — HashMap lookup -> Option<V>
+      - :wat::core::assoc  — HashMap entry add -> new HashMap
+      - :wat::list::reduce — already aliases foldl
 
       PLACEHOLDER (per user direction 2026-05-03):
 
@@ -420,15 +457,21 @@ captured-beats:
         > leave me a placeholder in this doc..."
 
       Arc 109 (the wat-rs mass-rewrite arc the user is grinding on)
-      will address this gap. Until then:
-      (a) merge primitive ships in 109 — lifts directly into the
-          kwargs use case once available
-      (b) interim: callers compose via repeated assoc, OR
-      (c) interim: wat-kwargs slice 1 ships its own merge if 109
-          hasn't shipped yet
+      will likely ship a stdlib merge helper on top of the existing
+      primitives — `:wat::map::merge` or `:wat::list::merge` or
+      whatever the substrate's stdlib taxonomy lands on. ~5 lines
+      of wat; not a substrate addition.
 
-      DO NOT design around the absence — track it as a known
-      substrate dependency that gets resolved in 109.
+      Until then:
+      (a) wait for arc 109's stdlib helper, OR
+      (b) wat-kwargs slice 1 ships its own ~5-line merge helper
+          on top of foldl + keys + get + assoc, OR
+      (c) callers compose via repeated assoc directly
+
+      DO NOT pretend merge is unavailable — track it as a known
+      stdlib helper that gets authored in 109 (or sooner if
+      wat-kwargs needs it before 109 ships). The substrate parts
+      are all there.
 
       THE "NOT STRONGLY COUPLED TO POSITIONAL DEFS" PRINCIPLE:
 
@@ -512,10 +555,10 @@ captured-beats:
         `(:wat::core::assoc ...)`
 
     pending:
-      - PLACEHOLDER (per user direction): merge primitive for
-        HashMap is a known TODO that arc 109 will address. Until
-        then, kwargs hash-map composition uses repeated assoc.
-        The merge gap is tracked here; no design workaround.
+      - PLACEHOLDER (per user direction): a stdlib merge helper for
+        HashMap that wraps (foldl + keys + get + assoc). Arc 109
+        will likely ship this. Until then, kwargs composition uses
+        repeated assoc OR a kwargs-internal merge helper.
 
     resolved-this-pass:
       - PascalCase HashMap naming question: CONFIRMED canonical
@@ -526,3 +569,10 @@ captured-beats:
         `(:wat::core::HashMap :(K,V))` with `:(K,V)` as the
         tuple-type for the key+value types; verbs assoc/dissoc/
         get/contains?/keys/values/empty?/length per arc 058.
+      - "Merge primitive" framing CORRECTED: merge is NOT a
+        substrate primitive — it's a foldl + keys + get + assoc
+        composition, ~5 lines of wat. wat-core has every part.
+        What's missing is just the stdlib helper authoring.
+        See "MERGE — what it actually is" section above for the
+        sketch. (User's question 2026-05-03: "is this just a
+        foldl expr?... " — yes, exactly.)
