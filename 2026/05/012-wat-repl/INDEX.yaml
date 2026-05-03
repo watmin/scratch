@@ -114,3 +114,94 @@ status: open (sketch; design firms up via chat)
 # was: wat-pause designed → rename + split surfaced wat-repl as
 # the foundation. wat-repl's arc number reflects when it was
 # OPENED, not its layering position.
+
+# ─── Captured beats (post-original-design) ───
+captured-beats:
+  - date: 2026-05-03
+    topic: wat-repl in the dep chain — depends on wat-help, consumed by wat-cli
+    triggered-by: |
+      User direction during the wat-help arc opening (arc 018):
+
+      > "this ret val.. help should depend on wat-fmt and repl
+      > should depend on help"
+
+      And further:
+
+      > "wat-repl needs to be depended on by wat-cli .... when a
+      > user compiles their own 'my-wat-cli' they can have the repl
+      > be used with whatever symbols their project created.. so
+      > help /just works/ in their env"
+
+    captured: |
+      DEPENDENCY POSITION CLARIFIED:
+
+      arc 012 (wat-repl) sits in the middle of a longer chain than
+      the original DESIGN sketched:
+
+        wat-cli (per-user compiled; arcs 099/100/101 of wat-rs)
+          ↓ ships wat-repl as DEFAULT battery
+        wat-repl (THIS ARC)
+          ↓ depends on
+        wat-help (arc 018) — for the :help / :doc / :source /
+                            :type / :ls special commands
+          ↓ depends on
+        wat-fmt (arc 003)
+        + wat-rs reflection primitives (arc 109)
+
+      WHAT CHANGES FROM THE ORIGINAL ARC 012 DESIGN:
+
+      Original sketch had repl-internal commands (:help, :type,
+      :source, :doc, :ls) implemented inside wat-repl. Per the
+      arc-018 direction, those commands now ROUTE THROUGH
+      wat-help:
+
+        Repl command          wat-help call
+        :help <sym>           (:wat::help :sym)
+        :doc <sym>            (:wat::help/doc :sym)
+        :source <sym>         (:wat::help/source :sym)
+        :type <sym>           (:wat::help/type :sym)
+        :ls <namespace>       (:wat::help/list :namespace)
+
+      wat-repl owns:
+      - The interactive loop (read-eval-print)
+      - Line editing + history (rustyline)
+      - Multi-line input (paren balance)
+      - Tab completion (calls into wat-rs reflection)
+      - Special-command dispatch (parses :foo and routes to
+        wat-help or other handlers)
+
+      wat-help owns:
+      - Symbol lookup
+      - Format composition
+      - Per-symbol-kind handling
+      - Output formatting via wat-fmt
+
+      THE WAT-CLI CONSUMER PROPERTY:
+
+      Per user direction, wat-cli ships wat-repl as a default
+      battery. When a user compiles `my-wat-cli` with their own
+      batteries, they get:
+
+        $ my-wat-cli repl       ;; opens REPL bound to user's frozen world
+        my-wat-cli> (:wat::help :my-app::some-sym)
+                                ;; help reflects USER's symbols
+                                ;; (no extra registration needed)
+
+      This is the load-bearing UX — repl + help "just work" in
+      every user-built CLI without configuration. See arc 018's
+      captured-beat for the full rationale.
+
+      WHAT THIS ARC'S DESIGN.MD NEEDS (deferred per "scrutiny at
+      impl time"):
+      - Add wat-help as a hard dep
+      - Update special-commands section to show route-through
+      - Add wat-cli consumer note
+      - Cross-reference arc 018
+
+      For now, this captured-beat is the framing-flip RECORD; the
+      DESIGN.md prose stays as-drafted and gets restructured at
+      impl-time scrutiny.
+
+    cross-references-added:
+      - arc 018 (wat-help) — primary dep for special commands
+      - arc 099/100/101 (wat-rs) — wat-cli architecture; consumer

@@ -1,0 +1,213 @@
+# Scratch arc — wat-help: runtime reflection (:wat::help :sym -> :String)
+#
+# Foundation-tier crate. Sits between wat-fmt (formatter) and
+# wat-repl (interactive). Provides the canonical "tell me about
+# this symbol" surface for every interactive consumer (repl;
+# pause; mcp; future tutor / autocomplete / LSP).
+
+arc:
+  slug: wat-help
+  date: 2026-05-03
+  triggered-by: |
+    User direction (during the wat-rs reflection-primitives work):
+
+    > "we are working through reflection primitives now... i think
+    > we need a wat-help who provides the form (:wat::help
+    > :some-symbol) -> entire form-as-edn
+    >
+    > this ret val.. help should depend on wat-fmt and repl should
+    > depend on help
+    >
+    > when we run (:wat::help :some-symbol) we get a pretty
+    > formatted edn str based on wat-fmt's rules?.. the user is
+    > presented with a digestable form that's hopefully useful?..."
+
+  outcome: |
+    Arc opened. Foundation-tier crate; the dep chain locked per
+    user direction.
+
+    LOCKED:
+    - Name: wat-help (universal noun; matches Python/Ruby/Clojure
+      idioms; gaze-approved)
+    - Form: (:wat::help :sym) -> :String — formatted EDN of the
+      symbol's full reflection surface
+    - Dep chain (per user direction):
+        wat-pause → wat-repl → wat-help → wat-fmt
+        wat-help ALSO depends on wat-rs reflection primitives
+        (arc 109's in-progress work)
+    - Output discipline: the returned EDN is the SYMBOL'S FORM
+      formatted via wat-fmt rules. No editorial synthesis. What
+      you see is what the substrate has.
+    - Foundation-tier crate at wat-rs/crates/wat-help/ per
+      arc-013 pattern; small scope; sharply scoped.
+
+    THE LOAD-BEARING ARGUMENT:
+
+    Reflection-formatting is its own concern. Living inside repl
+    forces unrelated consumers (MCP tools; tutoring; autocomplete;
+    pause sessions; future LSP server) to depend on the whole repl
+    machinery. Pulling it into a foundation-tier crate gives every
+    interactive consumer the same surface.
+
+    Per the four questions:
+    - Obvious  ✅✅ — `(:wat::help :sym)` matches user expectations
+                       from every language; "help" is universal
+    - Simple   ✅   — one function; small crate; clear deps
+    - Honest   ✅✅ — output IS the form (round-trip-able through
+                       wat-fmt); no editorial synthesis
+    - Good UX  ✅✅ — repl users land naturally; pause sessions get
+                       instant help; agents-via-MCP get typed
+                       reflection
+
+    Could be ✅✅✅ Honest if the returned EDN is structurally
+    identical to what wat-fmt would produce on the source — i.e.,
+    no editorial synthesis; just the actual form-as-stored
+    formatted consistently. Worth confirming in slice planning.
+
+    Slice plan depends on arc 109's reflection primitives; sized
+    conservatively.
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - same shape as 003-017 (README/INDEX/DESIGN/SLICE-PLAN)
+  - capture user's verbatim direction at decision points
+  - inherit conventions from prior arcs
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-03
+    role: orientation
+    summary: |
+      Top-level pointer. What wat-help is (runtime reflection
+      surface for all interactive consumers), the dep chain
+      (wat-pause → wat-repl → wat-help → wat-fmt), why it's a
+      separate crate, where it lives, what it is NOT.
+
+  - file: INDEX.yaml
+    captured: 2026-05-03
+    role: catalog
+    summary: This file. Beat-by-beat capture and arc status.
+
+  - file: DESIGN.md
+    captured: 2026-05-03
+    role: architecture
+    summary: |
+      Architecture in detail: the substrate reflection
+      primitives wat-help consumes; output composition;
+      per-symbol-kind handling (function/type/value/macro);
+      integration with wat-fmt; comparison to wat-doc (static
+      vs runtime); error model.
+
+  - file: SLICE-PLAN.md
+    captured: 2026-05-03
+    role: shipping plan
+    summary: |
+      Slices: basic symbol lookup + formatted output; docstring
+      extraction; cross-references; repl integration; mcp
+      integration; production hardening. Sized conservatively;
+      depends on arc 109 reflection primitives.
+
+# ─── State ───
+status: open (sketch; firms up as arc 109 reflection primitives mature)
+# Bar to graduate to a real wat-rs arc:
+#   1. Arc 109's reflection primitives (symbol lookup; definition
+#      serialization; source location) have firmed up enough to
+#      expose stable APIs that wat-help can call without breakage
+#   2. arc 003 (wat-fmt) has shipped slice 1 (the formatter dep
+#      is real)
+#   3. User signals "let's start"
+
+# Note: this arc is FOUNDATION-TIER alongside wat-fmt / wat-lint /
+# wat-cov / wat-doc. Small in scope; canonical surface for one
+# concern (runtime reflection over the symbol table).
+
+# Cross-arc dependency cascade (per user direction this conversation):
+#   - arc 012 (wat-repl) DESIGN.md should be updated to reflect
+#     the wat-help dependency; the :doc / :source / :type / :help
+#     special commands route through wat-help instead of being
+#     repl-internal
+#   - arc 005 (wat-pause) inherits wat-help transitively via wat-repl
+#   - arc 006 (wat-mcp) could expose wat-help as an MCP tool
+#     (Claude / agents get typed reflection over running wat-vms)
+
+# ─── Captured beats (post-original-design) ───
+captured-beats:
+  - date: 2026-05-03
+    topic: wat-cli ships wat-repl by default — "help just works" property
+    triggered-by: |
+      User direction (extending the original arc-opening direction):
+
+      > "further... wat-repl needs to be depended on by wat-cli ....
+      > when a user compiles their own 'my-wat-cli' they can have
+      > the repl be used with whatever symbols their project
+      > created.. so help /just works/ in their env"
+
+    captured: |
+      LOAD-BEARING UX PROPERTY — ZERO EXTRA SETUP:
+
+      The wat-cli architecture (arcs 099/100/101 of wat-rs proper)
+      lets each user compile their own `my-wat-cli` with their
+      batteries. By having wat-cli ship wat-repl + wat-help as
+      DEFAULT batteries, users get interactive help against their
+      own symbols without any extra registration:
+
+        $ my-wat-cli repl
+        my-wat-cli> (:wat::help :my-app::transfer-funds)
+        ;; → formatted EDN of THEIR function definition
+
+      The help reflects the user's frozen symbol table (wat-rs core
+      + their batteries). No special configuration; no opt-in
+      registration; help "just works" because the cli already
+      built it in.
+
+      WHY THIS IS LOAD-BEARING:
+
+      Without this property, wat-help is a library that users must
+      manually wire up — friction at exactly the moment the user
+      most wants help (mid-task, at the REPL, debugging). The
+      whole point of help is "ask the running program what it
+      knows about itself" — that ask must be one form away, not
+      five lines of setup.
+
+      With this property, every wat-cli user gets the same
+      surface for free. Consistent behavior across user
+      applications; consistent learning curve; the discipline
+      the substrate gives them at no cost.
+
+      DEPENDENCY CASCADE UPDATED:
+
+      The full chain is now:
+
+        wat-cli (per-user compiled; arcs 099/100/101)
+          ↓ default batteries include
+        wat-repl (arc 012)
+          ↓ depends on
+        wat-help (THIS ARC)
+          ↓ depends on
+        wat-fmt (arc 003)
+          + wat-rs reflection primitives (arc 109)
+
+      Arc 012 (wat-repl) needs a captured-beat noting:
+      - It depends on wat-help (per the original arc-opening
+        direction this conversation)
+      - It is consumed by wat-cli as a default battery (per this
+        captured-beat's direction)
+
+      Slice 5 of this arc's SLICE-PLAN is dedicated to verifying
+      the "just works" property end-to-end.
+
+    docs-updated:
+      - README.md: dep chain extended with wat-cli at the top;
+        "just works" property documented
+      - DESIGN.md: new "Integration with wat-cli" section with
+        sketch of how user batteries integrate
+      - SLICE-PLAN.md: slice 5 dedicated to the "just works"
+        verification (the load-bearing UX win)
+
+    cross-references:
+      - arc 099 (wat-rs) — wat-cli extracted as separate crate
+      - arc 100 (wat-rs) — wat_cli::run(&[Battery]) public API
+      - arc 101 (wat-rs) — single-purpose wat-cli
+      - arc 012 (wat-repl) — needs captured-beat update for the
+        wat-help dep + wat-cli consumer relationship
