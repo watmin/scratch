@@ -367,6 +367,133 @@ TCP+mTLS to the sidecar. The honest framing is: the layer
 became *optional per listener*. The substrate didn't lose a
 capability; the deployment gained a choice.
 
+## Compression — sidecar by default; app opt-in for cacheable hot paths
+
+Compression in this architecture sits at the **sidecar**, not
+the app. This is both the standard service-mesh deployment
+pattern AND the perf-correct default. The wat handler speaks
+plaintext to the sidecar over UDS; the sidecar handles
+Content-Encoding negotiation and codec for the wire.
+
+### Data flow
+
+**Outbound (response → client):**
+```
+wat handler → wat-http-serve (plaintext bytes; no Content-Encoding)
+  → UDS → sidecar (compresses per client Accept-Encoding;
+                   gzip / brotli / zstd)
+  → TLS → wire
+```
+
+**Inbound (request → handler):**
+```
+wire → TLS → sidecar (decompresses if Content-Encoding present)
+  → UDS → wat-http-serve (plaintext bytes)
+  → wat handler (sees decoded body always)
+```
+
+The wat handler **never sees compressed bytes in either
+direction.** It speaks plaintext to the sidecar over UDS; the
+sidecar handles negotiation and codec for the wire.
+
+### Why the sidecar is the perf-correct default
+
+1. **Envoy / istio-proxy is C++ with hand-tuned codecs**
+   (gzip, brotli, zstd). The sidecar is purpose-built for
+   this. Application logic stays in the app; wire concerns
+   stay in the sidecar.
+2. **One compression boundary, not two.** App emits plaintext;
+   sidecar compresses once. No double-encode, no transcoding
+   overhead.
+3. **UDS bandwidth is plentiful.** Sending uncompressed bytes
+   over UDS is fine — the kernel does in-process buffer copy.
+   Compressing into UDS just to have the sidecar decompress
+   and re-compress for the wire would be wasted CPU.
+4. **Operations decoupling.** SRE can adjust compression
+   algorithms (gzip → zstd → brotli) at the mesh level
+   without app changes or redeploys.
+
+### What clients see
+
+Compression is a **free win** because the universe of HTTP
+clients already speaks it. Browsers and standard HTTP
+libraries (curl, reqwest, requests, fetch) decompress
+Content-Encoding transparently. From the client's perspective
+there's nothing to do — `Accept-Encoding: br, gzip, zstd`
+goes out, body comes back decoded.
+
+`wat-http-client` (arc 011) follows the same pattern: outbound
+requests advertise `Accept-Encoding`; inbound responses are
+transparently decompressed before the wat handler sees them.
+
+### App-level compression — opt-in for hot cacheable endpoints
+
+The default sidecar-based pattern wins for almost everything.
+The legitimate exception is **cacheable dynamic responses at
+very high RPS** where compressing once and serving the
+compressed form repeatedly beats re-compressing on every hit.
+
+Opt-in middleware accommodates this without forcing it:
+
+```scheme
+;; Default: handler emits plaintext; sidecar compresses
+:my-handler
+
+;; Opt-in: app-level compression with response caching
+(:wat::http::serve::compose
+  (:wat::core::vec :Middleware
+    (:middleware/compress-cached
+      :algorithm :brotli
+      :cache-key (:lambda ((req :Request))
+                   (:Request/path req))))
+  :my-handler)
+```
+
+The middleware sets `Content-Encoding: br` on the response;
+the sidecar sees it already compressed and forwards as-is.
+For top-1% RPS endpoints with stable payloads, this saves
+real CPU. For everything else, sidecar handles it.
+
+### Static assets — pre-compress at build time
+
+Out of scope for wat-http-serve, but worth flagging the
+pattern: a sibling `wat-http-static` crate would pre-compute
+`.gz`, `.br`, `.zst` variants at build time and serve cached
+compressed bytes per `Accept-Encoding`. This is the
+highest-perf path for any static content and is the standard
+shape for asset servers.
+
+### Security caveat — BREACH / CRIME
+
+- **BREACH (2013)** affects HTTP body compression of responses
+  containing secrets that depend on attacker-controlled input.
+  Mitigations are application-layer: don't mix secrets +
+  user input in compressed responses; use length padding;
+  rate-limit. This applies to ANY HTTP framework with
+  compression and isn't specific to wat-http-serve. Worth
+  documenting because deployment at scale will surface it.
+- **CRIME (2012)** was TLS-level compression of secret-bearing
+  traffic. **Irrelevant here** — we never compress at the TLS
+  layer; sidecar compresses HTTP body only, after TLS
+  termination.
+
+### Per the four questions on compression placement
+
+- **Obvious?** ✅ — compression is at the sidecar by default;
+  app-level opt-in is explicit middleware
+- **Simple?** ✅ — handler doesn't think about compression;
+  sidecar does its job; one decision point per response
+- **Honest?** ✅ — the layer where compression happens is
+  visible in deployment config (sidecar) or middleware
+  composition (app); no hidden codecs, no surprise headers
+- **Good UX?** ✅ — handler authors write plaintext; SRE
+  configures wire compression at the mesh; advanced perf
+  patterns are opt-in middleware
+
+Standard quad. Compression placement is a deployment-flexibility
+decision, not a substrate-novelty one. The architecture
+supports the right pattern at every level without forcing any.
+
 ## Connection to wat-network deployment
 
 The wat-network deployment story (per WAT-NETWORK.md), with

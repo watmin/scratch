@@ -1,0 +1,118 @@
+# Scratch arc — wat-http-client: HTTP client (the other end of arc 009)
+#
+# Wat-side HTTP client built on reqwest (which is built on hyper).
+# Pairs with wat-http-serve (arc 009). Same Request/Response types;
+# same plaintext-handler discipline (compression handled
+# transparently by the Rust client); same UDS-or-TCP transport
+# flexibility.
+
+arc:
+  slug: wat-http-client
+  date: 2026-05-03
+  triggered-by: |
+    User direction (after the compression conversation):
+
+    > "i think we need a wat-http-client or something to handle
+    > the other end of this?... but.. you should have a doc on
+    > compress for the serve parts - it makes sense"
+
+    Came after the transport conversation made it clear that
+    "listener as configuration / handler as invariant" works
+    on the server side; the symmetric question for the client
+    side is "where does the wat-side OUTBOUND interface live?"
+
+    Today we have:
+    - arc 007 (RemoteProgram) — typed RPC for wat-to-wat;
+      built on wat-network primitives (mTLS, signed eval,
+      digest forms)
+    - arc 009 (wat-http-serve) — server side; receive HTTP
+
+    Missing: the general-purpose HTTP client. RemoteProgram is
+    too narrow (typed wat-to-wat); we need the everything-else
+    case. wat-http-client is that crate.
+
+  outcome: |
+    Arc opened. Same crate pattern as 009/010 (arc-013
+    self-contained crate; README/INDEX/DESIGN/SLICE-PLAN).
+
+    LOCKED:
+    - Name: wat-http-client (gaze-approved; client is the
+      universal noun for this role; pairs with wat-http-serve;
+      same http- prefix discipline)
+    - Layering: reqwest-based Rust shim at Layer 2; wat-side
+      client interface at Layer 3
+    - Architecture: client invocation is a function call:
+      :method, :url, :headers, :body, :timeout kwargs ->
+      :Result<:Response, :ClientError>
+    - Compression: transparent decompression of inbound bodies
+      (reqwest does this); outbound compression opt-in
+    - Transport: TCP for external; UDS for talking to local
+      services through a sidecar (e.g., calling other pods'
+      services via the local outbound proxy)
+    - Retries: NOT included; caller decides retry semantics
+      (failure engineering principle)
+
+    Application-tier arc; depends on:
+    - arc 009 (wat-http-serve) — for shared Request/Response
+      types
+    - arc 007 (RemoteProgram) — could sit ON TOP for the
+      typed-wat-to-wat case
+
+    Slice plan not yet sized; design firms up via chat
+    iteration.
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - same shape as 003-010 (README/INDEX/DESIGN/SLICE-PLAN)
+  - capture user's verbatim direction at decision points
+  - inherit conventions from prior arcs (four questions,
+    arc-013 crate pattern, etc.)
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-03
+    role: orientation
+    summary: |
+      Top-level pointer. What wat-http-client is (the other end
+      of arc 009), the four-layer architecture, where it lives
+      (wat-rs/crates/wat-http-client/), reading order,
+      cross-references to arc 009 + arc 007 + WAT-NETWORK.
+
+  - file: INDEX.yaml
+    captured: 2026-05-03
+    role: catalog
+    summary: This file. Beat-by-beat capture and arc status.
+
+  - file: DESIGN.md
+    captured: 2026-05-03
+    role: architecture
+    summary: |
+      Architecture in detail: reqwest-based Rust shim, wat-side
+      client function signature, Request/Response sharing with
+      arc 009, ClientError taxonomy, connection pooling, TLS
+      client config, compression handling (transparent
+      decompression), transport flexibility (TCP / UDS),
+      retry policy (caller's responsibility per failure
+      engineering), timeouts, redirect handling.
+
+  - file: SLICE-PLAN.md
+    captured: 2026-05-03
+    role: shipping plan
+    summary: |
+      Sketch slices: basic GET/POST; connection pooling and
+      keepalive; TLS client config; UDS support; transparent
+      compression; integration with arc 009 round-trip tests.
+
+# ─── State ───
+status: open (sketch; design firms up via chat)
+# Bar to graduate to a real wat-rs arc:
+#   1. arc 009 (wat-http-serve) has shipped slice 1 (so the
+#      shared Request/Response types are firm)
+#   2. arc 007 (RemoteProgram) wire protocol decisions firm
+#      enough to know what wat-http-client must expose
+#   3. User signals "let's start"
+
+# Note: this arc is APPLICATION-TIER, not foundation-tier.
+# It depends on wat-http-serve (arc 009) for shared types and
+# may be a transport-layer dependency for RemoteProgram (007).
