@@ -10,7 +10,7 @@ of record. Just durable.
 
 ## Top-level meta-vision
 
-Three companion documents at scratch root articulate the
+Four companion documents at scratch root articulate the
 work's meta-frame. Read them after orienting to the per-arc
 work; they tie the arcs together.
 
@@ -40,6 +40,17 @@ content-addressed programs (digest forms), and verifiable
 execution (signed eval forms). Each arc in `2026/05/003-008`
 is a piece of this larger architecture; the WAT-NETWORK doc
 is the whole.
+
+**`DEPENDENCY-DOCTRINE.md`** — the COUPLING. The position
+that wat is built on a stack of carefully chosen Rust
+ecosystem foundations (tokio, hyper, reqwest, rustls,
+crossbeam, serde) and that this coupling is itself a
+discipline. We don't reinvent; we don't pretend independence;
+we stand on giants and document which giants. The doc
+articulates the CSP/async duality (why wat composes with
+async runtimes), the four-questions-plus-wat-tests for
+evaluating candidate deps, and the negative space (what we
+DON'T depend on, and why).
 
 Plus the per-arc bookworthy material in `2026/05/008-kwarg-macros/`
 (`FOR-THE-BOOK.md`, `SYMBIOSIS.md`) — the HOW. The
