@@ -1,4 +1,4 @@
-# wat-define-nary — DESIGN
+# wat-define-clauses — DESIGN
 
 A separate `define` form supporting multi-arity dispatch.
 Substrate-tier; post-109 gated; design-only until the mass
@@ -8,10 +8,10 @@ refactor closes.
 
 ## The four questions are the design compass
 
-- **Obvious?** Separate form name (`define-nary`) signals "this is
+- **Obvious?** Separate form name (`define-clauses`) signals "this is
   the multi-arity case." Common case stays with `define`.
 - **Simple?** Each form does one thing. `define` doesn't grow a
-  mode for multi-arity; `define-nary` doesn't pretend to be the
+  mode for multi-arity; `define-clauses` doesn't pretend to be the
   default.
 - **Honest?** Single return type at the head of the form; arity
   bodies are visible as a list of (args body) pairs; dispatch
@@ -38,7 +38,7 @@ captures both bounds so the future conversation has the full space.**
 ## Lower bound — Clojure-style arity-only
 
 ```scheme
-(:wat::core::define-nary :my-merge-many -> :HashMap<K,V>
+(:wat::core::define-clauses :my-merge-many -> :HashMap<K,V>
   ;; arity 0
   (()
     (:wat::core::HashMap :(K,V)))
@@ -57,7 +57,7 @@ captures both bounds so the future conversation has the full space.**
 ```
 
 Form structure:
-- `(:wat::core::define-nary :name -> :ReturnType` opens
+- `(:wat::core::define-clauses :name -> :ReturnType` opens
 - Body is a sequence of arity pairs: `((args) body)`
 - Each pair declares one arity
 - Closing `)` on the outermost form
@@ -84,7 +84,7 @@ documentation per arity body.
 
 ```scheme
 ;; HYPOTHETICAL — extended design upper bound; NOT settled
-(:wat::core::define-nary :factorial -> :i64
+(:wat::core::define-clauses :factorial -> :i64
   ;; arity 1, literal pattern
   (((0))
     1)
@@ -165,7 +165,7 @@ later if patterns surface in real wat code.
 ## Substrate work required (post-109)
 
 Implementation requires:
-1. **Parser** — recognize `(:wat::core::define-nary :name -> :T
+1. **Parser** — recognize `(:wat::core::define-clauses :name -> :T
    body...)` form; parse each (args body) pair
 2. **Type checker** — validate each body returns `:T`; check
    no-duplicate-arity rule; (upper bound) validate patterns and
@@ -203,7 +203,7 @@ Estimated complexity:
 ## Open architectural questions
 
 A. **Default arity body.** Erlang allows a "fallback clause" via
-   bare-symbol patterns. Should `define-nary` allow a "default"
+   bare-symbol patterns. Should `define-clauses` allow a "default"
    arity (e.g., `((:default :args)) ...body...`)? Lean: NO for
    lower bound; the pattern-clause shape (upper bound) gives this
    for free via fallthrough.
@@ -216,7 +216,7 @@ B. **Recursion across arities.** Can the 2-ary body call the
 C. **Parametric type variables across arities.** Should `K` and
    `V` in `:HashMap<K,V>` be shared across all arity bodies, or
    independently quantified per arity? Lean: shared at the
-   define-nary level (declared at the head; all arities use the
+   define-clauses level (declared at the head; all arities use the
    same type variables).
 
 D. **Variadic + N-ary interaction.** If wat someday adds variadic
@@ -224,7 +224,7 @@ D. **Variadic + N-ary interaction.** If wat someday adds variadic
    variadic is its own form (`define-variadic`?); doesn't
    compose with N-ary; user picks one shape per function.
 
-E. **Macro vs evaluator-level dispatch.** Could `define-nary` be
+E. **Macro vs evaluator-level dispatch.** Could `define-clauses` be
    implemented as a macro that expands to a single `define` with
    internal arity-checking via match? Lean: NO — the substrate
    should know about the multi-arity shape natively for clean

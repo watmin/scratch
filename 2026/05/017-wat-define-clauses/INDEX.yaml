@@ -1,12 +1,12 @@
-# Scratch arc — wat-define-nary: N-ary dispatch as a separate define form
+# Scratch arc — wat-define-clauses: N-ary dispatch as a separate define form
 #
 # Substrate-tier design ASK. Captures the design for a new
-# :wat::core::define-nary form (Clojure-style multi-arity dispatch;
+# :wat::core::define-clauses form (Clojure-style multi-arity dispatch;
 # Erlang-resonance per user). POST-109 work; no implementation
 # until the mass refactor closes.
 
 arc:
-  slug: wat-define-nary
+  slug: wat-define-clauses
   date: 2026-05-03
   triggered-by: |
     User exploration of N-ary vs convention during the kwargs
@@ -47,11 +47,12 @@ arc:
     work begins until then.
 
     LOCKED:
-    - Name: wat-define-nary (working name; gaze-approved
-      "define-nary" — terse, precise, doesn't collide with type
-      polymorphism; debatable later)
+    - Name: wat-define-clauses (renamed 2026-05-03 from initial
+      "wat-define-nary" — see captured-beats below for rationale;
+      "clauses" is Erlang vocabulary; names the actual unit being
+      defined; doesn't undersell the design as just-arity dispatch)
     - Substrate-tier: this is wat-rs proper work, not a crate; new
-      :wat::core::define-nary form
+      :wat::core::define-clauses form
     - Separate form, NOT extending :wat::core::define (per user
       direction: "don't shim something into define")
     - Single return type at the head of the form; all arity bodies
@@ -102,7 +103,7 @@ notes:
     captured: 2026-05-03
     role: orientation
     summary: |
-      Top-level pointer. What wat-define-nary is (separate form
+      Top-level pointer. What wat-define-clauses is (separate form
       for N-ary dispatch), the post-109 gate, the verbose-by-design
       principle, the layering, the Erlang resonance noted, what
       this arc is NOT.
@@ -151,3 +152,107 @@ status: open (design only; POST-109 gate)
 # the mass refactor is done", this arc is design-only until 109
 # closes. The arc exists to capture the design thread; implementation
 # is gated.
+
+# ─── Captured beats (post-original-design) ───
+captured-beats:
+  - date: 2026-05-03
+    topic: rename — wat-define-nary → wat-define-clauses; framing flip
+    triggered-by: |
+      User direction the same day this arc opened, after recognizing
+      the asymmetry between Erlang form and N-ary form:
+
+      > "is the erlang-y-ness captured in that.. as you said.. this
+      > is more than n-ary .. we can deliver n-ary via the erlang
+      > form.. but the erlang form enables more than n-ary?.."
+
+      Confirmed the rename:
+
+      > "rename - right now the names need to communicate - we'll
+      > apply more scrutiny at impl time - we just need the road
+      > mapped out here"
+
+    captured: |
+      THE ASYMMETRY THE USER NAMED:
+
+      Erlang clause-based dispatch SUBSUMES Clojure-style N-ary
+      dispatch as a special case. You can deliver N-ary FROM the
+      Erlang form (just use bare-typed-arg patterns; no literals;
+      no guards). You CANNOT deliver Erlang form FROM the N-ary
+      form without strict extension.
+
+      So the design isn't "N-ary defn with optional pattern
+      extension." The design IS the Erlang clause system; arity-
+      only dispatch falls out as the degenerate case.
+
+      THE NAMING FIX:
+
+      Original arc name `wat-define-nary` reflected the lower
+      bound (arity-only). This undersold the design — implementers
+      landing in the arc would see "N-ary" and think "arity
+      dispatch only," missing that the actual design is broader.
+
+      Renamed to `wat-define-clauses`:
+      - "Clauses" IS the Erlang noun for the unit being defined
+      - Names the actual unit (multiple clauses; each with args +
+        optional guard + body)
+      - Forward-compatible: arity-only dispatch is just clauses
+        with bare-arg patterns
+      - Doesn't undersell the design
+
+      Substrate form name changes accordingly:
+        :wat::core::define-nary → :wat::core::define-clauses
+
+      THE FRAMING FLIP (per user direction "we'll apply more
+      scrutiny at impl time"):
+
+      The DESIGN.md still has "lower bound / upper bound" sections
+      because those were already drafted at arc-opening time. The
+      current rename + this captured-beat record the framing flip
+      conceptually:
+
+      - PRIMARY DESIGN: clause-based dispatch (Erlang-style; full
+        pattern + guard support)
+      - DEGENERATE CASE: clauses with bare-typed-arg patterns
+        (arity-only; covers Clojure N-ary use cases)
+      - IMPLEMENTATION CUT: ship the full clause shape OR ship
+        arity-only first as a forward-compatible subset
+
+      Per user direction, NOT restructuring DESIGN.md prose now —
+      "we just need the road mapped out here." The road is mapped:
+      Erlang clauses are the target; arity-only is the simplest
+      path through it; impl-time scrutiny decides how much to ship
+      in slice 1.
+
+      WHAT THIS CHANGES (post-109 implementer experience):
+
+      With wat-define-nary + lower/upper-bound framing →
+        "ship arity-only; extend later if needed"
+
+      With wat-define-clauses + degenerate/full framing →
+        "ship the clause system; arity-only is the simplest path
+         through it; we're building the same machinery either way;
+         just deciding how much of the pattern surface to expose
+         initially"
+
+      Second framing is honest about the substrate work being done.
+      First framing risked making the substrate work feel like two
+      separate efforts when it's really one machine with surface
+      parameters.
+
+    docs-updated:
+      - directory: 017-wat-define-nary → 017-wat-define-clauses
+      - all in-arc files: form name renames (define-nary →
+        define-clauses)
+      - README.md, INDEX.yaml, DESIGN.md, SLICE-PLAN.md all updated
+      - scratch root README.md: arc 017 listing renamed
+
+    pending:
+      - DESIGN.md section restructure (lead with clauses-as-primary,
+        arity-only-as-degenerate) deferred per user direction "we'll
+        apply more scrutiny at impl time" — captured-beat is the
+        framing-flip record; full prose restructure happens at
+        post-109 implementation time
+      - Verbatim user quotes in arc that mentioned "N-ary" stay as
+        spoken (the user's question was about N-ary specifically;
+        the recognition that Erlang form > N-ary came after; both
+        are part of the historical record)

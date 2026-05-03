@@ -1,4 +1,4 @@
-# wat-define-nary — SLICE-PLAN
+# wat-define-clauses — SLICE-PLAN
 
 Conservative; post-109 gated; design-only until the substrate
 stabilizes.
@@ -34,7 +34,7 @@ If yes to all three, slice 1 begins.
 
 ## Slice 1 — Lower bound: arity-only dispatch (parser + type checker)
 
-**Goal:** parse `(:wat::core::define-nary ...)` form; type-check
+**Goal:** parse `(:wat::core::define-clauses ...)` form; type-check
 each arity body; reject invalid declarations.
 
 **Done when:**
@@ -60,7 +60,7 @@ each arity body; reject invalid declarations.
 dispatch to matching arity body.
 
 **Done when:**
-- Symbol table stores arity table per `define-nary` function
+- Symbol table stores arity table per `define-clauses` function
 - Evaluator counts caller args at call site
 - Dispatch picks matching arity body; runs it
 - `:NoArityMatch` typed error if no arity matches; declared
@@ -77,7 +77,7 @@ dispatch to matching arity body.
 **Goal:** lower bound is genuinely usable in production wat code.
 
 **Done when:**
-- Documentation: USER-GUIDE entry for `define-nary`; comparison to
+- Documentation: USER-GUIDE entry for `define-clauses`; comparison to
   `define`; common-pattern cookbook
 - Error messages reviewed for clarity
 - Performance: dispatch overhead < 1µs (microbenchmark committed)
@@ -165,7 +165,7 @@ Estimated effort:
 
 ## The core principle
 
-**Substrate primitives are forever.** Once `define-nary` ships,
+**Substrate primitives are forever.** Once `define-clauses` ships,
 existing wat code may depend on it; future-us cannot remove it
 without breaking compatibility. Therefore:
 

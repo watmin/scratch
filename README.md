@@ -136,7 +136,7 @@ thread, move it into a new arc directory and seed
 2026/05/014-wat-http-api-spec/                   foundation tier — single source of truth for HTTP API contracts (OpenAPI/Smithy parallel)
 2026/05/015-wat-http-api-server/                 app tier — spec-driven server skeleton; opinionated middleware on wat-http-router
 2026/05/016-wat-http-api-client/                 app tier — spec-driven typed client SDK; opinionated layer on wat-http-client
-2026/05/017-wat-define-nary/                     substrate tier — N-ary defn (Clojure/Erlang resonance); POST-109 gated; design-only
+2026/05/017-wat-define-clauses/                  substrate tier — Erlang-style function clauses (arity-only dispatch is the degenerate case); POST-109 gated; design-only
 ```
 
 The `2026/05/003-006` arcs together form the **foundation

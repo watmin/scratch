@@ -1,4 +1,4 @@
-# wat-define-nary — N-ary dispatch as a separate define form
+# wat-define-clauses — N-ary dispatch as a separate define form
 
 User direction (2026-05-03):
 
@@ -21,7 +21,7 @@ and recognizing wat doesn't have `[...]` literal syntax, user direction:
 
 ---
 
-## What wat-define-nary is
+## What wat-define-clauses is
 
 A **separate `define` form** that supports Clojure-style N-ary
 dispatch — one function name with multiple bodies, one per arity.
@@ -30,7 +30,7 @@ Single return type at the head. Multiple arity bodies in the body.
 Substrate-level dispatch by argument count at call site.
 
 ```scheme
-(:wat::core::define-nary :my-merge-many -> :HashMap<K,V>
+(:wat::core::define-clauses :my-merge-many -> :HashMap<K,V>
   ;; arity 0
   (()
     (:wat::core::HashMap :(K,V)))
@@ -81,19 +81,19 @@ User direction:
 > *"no new primitives in core until the mass refactor is done"*
 
 Arc 109 is the wat-rs mass refactor — currently revealing every
-bug it touches. Adding `define-nary` to wat-core during that work
+bug it touches. Adding `define-clauses` to wat-core during that work
 would mean either:
 1. Shipping a new primitive into a moving substrate (risky)
 2. Holding 109 to integrate with the new form (slows the refactor)
 
 Both are bad. **The refactor closes first; then post-109 work
-considers adding `define-nary` to wat-core.** This arc captures
+considers adding `define-clauses` to wat-core.** This arc captures
 the design now so the work is sketched and ready when 109 closes,
 but no implementation work begins until then.
 
 ## Where it would live (post-109)
 
-`define-nary` is **substrate-level** — it's a new wat-core form, not
+`define-clauses` is **substrate-level** — it's a new wat-core form, not
 a crate-level pattern. Lives in wat-rs proper:
 
 - Parser: recognizes the form syntax
@@ -109,9 +109,9 @@ are wat-rs work, not crate work.
 ## Layering
 
 ```
-LAYER — user wat code           uses (:wat::core::define-nary ...)
+LAYER — user wat code           uses (:wat::core::define-clauses ...)
   ↓ uses
-LAYER — wat-rs substrate        define-nary form (parser + type
+LAYER — wat-rs substrate        define-clauses form (parser + type
                                   checker + evaluator)
   ↓
 LAYER — Rust ecosystem          (no new external deps)
@@ -153,7 +153,7 @@ LAYER — Rust ecosystem          (no new external deps)
 ## Status
 
 - **Captured:** 2026-05-03
-- **Naming:** `define-nary` (gaze-approved working name; "n-ary"
+- **Naming:** `define-clauses` (gaze-approved working name; "n-ary"
   is the canonical CS jargon for variable-arity functions; doesn't
   collide with type polymorphism; debatable later if a stronger
   name emerges)
@@ -181,7 +181,7 @@ but:
    N-ary — kwargs dispatch on KEYS, not arity
 2. The merge-many example is expressible today via `foldl` over
    a Vec arg (no N-ary needed)
-3. Adding `define-nary` is genuine substrate work; should not
+3. Adding `define-clauses` is genuine substrate work; should not
    happen during 109's mass refactor
 
 The arc exists so we don't lose the design thread. When 109
