@@ -138,3 +138,151 @@ status: open
 # on this arc per user direction. RemoteProgram's constructors
 # use the pattern; this arc's slice 1 reference impl IS one of
 # RemoteProgram's constructors.
+
+# ─── Captured beats (post-original-design) ───
+captured-beats:
+  - date: 2026-05-03
+    topic: two forms — kwargs-define + kwargs-attach
+    triggered-by: |
+      User direction (during a refinement conversation about how
+      the kwargs surface gets attached to functions):
+
+      > "on our automagic kwargs thing who type checks... could we
+      > make this be two forms... kwargs-ify an existing def.. and
+      > also kwargs-ify an in-progress def?....
+      >
+      > (:wat::runtime::kwargs-define
+      >   ...)
+      >
+      > works like normal define but it create 2 funcs...
+      > this'll produce a func of :some-name-nokwargs and :some-name?...
+      > the caller's interface is the nice one without type defs..?...
+      > we enforce them at definition time but we the caller can drop
+      > them and we'll still raise on mismatch?...."
+
+      User confirmed the assistant's restatement:
+
+      > "i really like your suggested forms - let's get our notes in
+      > order - no complaints.. we'll debate the name later.. this
+      > communicates now"
+
+    captured: |
+      THE TWO-FORM REFINEMENT:
+
+      The original arc 008 design framed kwargs as a generated
+      surface from existing typed function signatures. The user's
+      refinement: split the SURFACE GENERATION ENTRY POINT into
+      two distinct forms, each clearly purposed:
+
+      Form 1 — kwargs-define (working name; debatable):
+
+        Define a NEW function with kwargs from the start.
+
+        (:wat::kwargs::define :transfer-funds
+          (from   :AccountId)              ; types at definition only
+          (to     :AccountId)
+          (amount (:i64 :range 1 1000000))  ; refined types via wat-schema
+          (memo   (:optional :string))
+          -> :Result<:TransferReceipt, :TransferError>
+          (...body...))
+
+        Generates two callable forms:
+          :transfer-funds            ← kwargs surface (the polite caller)
+          :transfer-funds-positional ← raw positional (typed, fast path)
+                                       (or -nokwargs per user's draft)
+
+      Form 2 — kwargs-attach (working name; debatable):
+
+        Augment an EXISTING typed positional function with a
+        kwargs surface.
+
+        (:wat::kwargs::attach :existing-fn)
+
+        Generates:
+          :existing-fn-kwargs        ← polite caller surface
+          :existing-fn               ← stays as-is (the original typed
+                                       positional function)
+
+      Both forms produce a polite kwargs surface that delegates to
+      the typed positional implementation. Same mechanism; two entry
+      points for two real use cases.
+
+      THE LOAD-BEARING DISCIPLINE (user's articulation):
+
+      > "the caller's interface is the nice one without type defs...
+      > we enforce them at definition time but we the caller can drop
+      > them and we'll still raise on mismatch"
+
+      Types belong at the DEFINITION SITE, not at every call site.
+      The kwargs form takes named values; the values get type-checked
+      against the definition's expected types; mismatches raise
+      structured errors pointing at the offending kwarg.
+
+      Caller writes:
+        (:transfer-funds :from a :to b :amount 500 :memo "lunch")
+        ;; That's it. No type annotations. The function definition
+        ;; already enforces.
+
+      Definition site has the types ONCE. Callers see the polite
+      named-arg surface. Type errors land structured at the
+      offending kwarg. Failure-engineering position holds: errors
+      are typed values; never panics.
+
+      PER THE FOUR QUESTIONS:
+        - Obvious  ✅✅ — two forms with clear purposes; suffix
+          names the alternate; callers see the polite version
+        - Simple   ✅   — one mechanism (kwarg-wrapping); two entry
+          points (define vs attach)
+        - Honest   ✅✅ — types at definition; runtime enforcement;
+          structured errors; no hidden behavior in the wrapper
+        - Good UX  ✅✅ — caller writes named-arg style; doesn't
+          repeat types; can still reach positional form for hot paths
+
+      Could be ✅✅✅ Honest if the type enforcement at the kwargs
+      surface is structurally identical to what the positional
+      function would do (i.e., you can't construct a kwargs call
+      that bypasses any check the positional call would catch).
+      Worth confirming in design / slice planning.
+
+      WHERE THIS COMPOUNDS:
+
+      The two-form pattern compounds with the application-tier arcs:
+
+      - arc 015 (wat-http-api-server): generated handlers can use
+        the kwargs surface naturally. Spec-driven server gets
+        ergonomic typed handlers automatically — no extra ceremony.
+      - arc 016 (wat-http-api-client): generated client call
+        functions could use kwargs by default if the underlying
+        primitive provides them.
+      - arc 014 (wat-http-api-spec): the spec DSL itself uses kwargs
+        heavily; the kwargs primitive serves the spec primitive's
+        ergonomics.
+      - arc 007 (RemoteProgram): RemoteProgram's constructors are
+        already the load-bearing example for this pattern (per the
+        original arc 008 outcome).
+
+      NAMING — DEFERRED PER USER:
+
+      User direction: "we'll debate the name later.. this
+      communicates now"
+
+      Working names (per the assistant's gaze proposal):
+        :wat::kwargs::define   for Form 1
+        :wat::kwargs::attach   for Form 2
+        -positional or -nokwargs as the suffix on the generated
+          underlying function
+
+      Final names settle in slice planning OR a future gaze pass.
+      The substance is captured; the naming can move.
+
+    docs-updated:
+      - INDEX.yaml: this captured-beat
+      - DESIGN.md: should be revisited at slice planning to absorb
+        the two-form distinction explicitly; deferred for now since
+        the captured-beat carries the substance
+
+    pending:
+      - Final naming (define / attach / positional / nokwargs / etc.)
+      - Confirm structural-Honest property (kwargs surface can't
+        bypass positional type checks)
+      - DESIGN.md restructure to surface two-form distinction
