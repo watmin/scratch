@@ -8,7 +8,7 @@ protocol.
 ## 1. Agent-driven debugging
 
 The killer use case the user named. A wat program contains
-`(:wat::pry::break)` at suspect points. The agent connects via
+`(:wat::pause::break)` at suspect points. The agent connects via
 MCP, calls the program's functions, hits the break, inspects
 captured Environment, hypothesizes counterfactuals via
 `override-return`, resumes, iterates.
@@ -18,17 +18,17 @@ Concrete shape:
 ```
 agent (Claude in a debugging conversation)
   │
-  ├─ wat-eval (:wat::pry::ls :trading)               ← discover
-  ├─ wat-eval (:wat::pry::show :trading::compute-decision)  ← read source
+  ├─ wat-eval (:wat::pause::ls :trading)               ← discover
+  ├─ wat-eval (:wat::pause::show :trading::compute-decision)  ← read source
   │
   ├─ wat-eval-stream (:trading::compute-decision <test-candle>)  ← invoke
   │   │
-  │   ↓ (:wat::pry::break) fires inside compute-decision
+  │   ↓ (:wat::pause::break) fires inside compute-decision
   │   ← notification: paused at trade.wat:42:7
   │
-  ├─ wat-eval session=X (:wat::pry::env)             ← inspect locals
+  ├─ wat-eval session=X (:wat::pause::env)             ← inspect locals
   ├─ wat-eval session=X (:trading::action regime rsi vol)  ← test downstream
-  ├─ wat-eval session=X (:wat::pry::override-return :Action::Sell)  ← counterfactual
+  ├─ wat-eval session=X (:wat::pause::override-return :Action::Sell)  ← counterfactual
   │
   └─ original wat-eval-stream returns :Action::Sell  ← see effect on caller
 ```
@@ -55,8 +55,8 @@ crate's surface without reading the docs. They run:
 $ wat --mcp /path/to/telemetry-only.wat   ; an entry that just loads :wat::telemetry::*
 ```
 
-The agent connects, calls `(:wat::pry::ls :wat::telemetry)`,
-sees the namespace's shape, reads `(:wat::pry::show
+The agent connects, calls `(:wat::pause::ls :wat::telemetry)`,
+sees the namespace's shape, reads `(:wat::pause::show
 :wat::telemetry::Event)` to learn the Event enum, constructs
 test events, calls `(:wat::telemetry::log/info ...)` to test the
 emit path, observes results. **The agent builds a mental model
@@ -128,7 +128,7 @@ hologram with its own freeze; the protocols stack.
 ## 5. Production interactive control planes
 
 A long-running wat program (a service, a daemon, a trader) can
-run with `--mcp --tcp 9999` (slice 5 of pry's plan; same
+run with `--mcp --tcp 9999` (slice 5 of pause's plan; same
 mechanism) and accept agent connections from a remote operator's
 terminal.
 
@@ -137,7 +137,7 @@ only manifest in production. The operator (or an LLM-driven
 ops agent) connects to it via:
 
 ```
-$ wat-pry --attach tcp://prod-trader:9999
+$ wat-pause --attach tcp://prod-trader:9999
 ```
 
 The connection establishes; the agent makes `wat-eval` calls

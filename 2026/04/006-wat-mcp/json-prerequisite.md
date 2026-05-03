@@ -7,7 +7,7 @@ land, the substrate needs an analogous JSON read/write surface:
 - **Read** — parse a JSON-encoded string into a wat Value.
 - **Write** — serialize a wat Value as a JSON-encoded string.
 
-This is the only substrate dependency 006 has that 005-wat-pry
+This is the only substrate dependency 006 has that 005-wat-pause
 doesn't already cover.
 
 ## Two paths

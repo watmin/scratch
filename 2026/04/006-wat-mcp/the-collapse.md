@@ -58,24 +58,24 @@ inside a JSON string field.
   All of arc 102's polymorphic eval semantics.
 - **The freeze invariant.** Agent is a caller through the
   surface; cannot reach back. Same hologram property the human
-  pry user sees.
+  pause user sees.
 
 ## What the agent does instead of reading JSON Schema
 
 The agent uses wat itself for discovery:
 
 ```
-agent calls   wat-eval {"msg": "(:wat::pry::ls)"}
+agent calls   wat-eval {"msg": "(:wat::pause::ls)"}
 agent reads   "[:wat::core::*, :wat::std::*, :wat::sqlite::*, ...]"
 
-agent calls   wat-eval {"msg": "(:wat::pry::ls :trading)"}
+agent calls   wat-eval {"msg": "(:wat::pause::ls :trading)"}
 agent reads   "[:trading::types::Candle, :trading::compute-decision, ...]"
 
-agent calls   wat-eval {"msg": "(:wat::pry::show :trading::compute-decision)"}
+agent calls   wat-eval {"msg": "(:wat::pause::show :trading::compute-decision)"}
 agent reads   "fn :trading::compute-decision (candle :Candle) -> :Action ..."
 ```
 
-The substrate's pry-shipped introspection (slice 1 of 005) IS
+The substrate's pause-shipped introspection (slice 1 of 005) IS
 the API documentation surface. The agent reads docs by calling
 into the substrate. **The substrate's introspection is the
 contract.** No second document; nothing to keep in sync.

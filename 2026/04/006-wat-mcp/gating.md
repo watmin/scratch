@@ -1,8 +1,8 @@
-# Gating — `--mcp` mirrors `--pry`
+# Gating — `--mcp` mirrors `--pause`
 
-Same discipline as 005-wat-pry's gating: pry primitives are
-illegal without `--pry`; mcp primitives are illegal without
-`--mcp`. Pry battery and MCP battery are independently loadable.
+Same discipline as 005-wat-pause's gating: pause primitives are
+illegal without `--pause`; mcp primitives are illegal without
+`--mcp`. Pause battery and MCP battery are independently loadable.
 
 ## The mechanism
 
@@ -11,7 +11,7 @@ The wat-cli's argv parser checks for both flags:
 ```rust
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
-    let pry_mode = args.iter().any(|a| a == "--pry");
+    let pause_mode = args.iter().any(|a| a == "--pause");
     let mcp_mode = args.iter().any(|a| a == "--mcp");
 
     let mut batteries: Vec<Battery> = vec![
@@ -23,83 +23,83 @@ fn main() -> ExitCode {
         (wat_telemetry_sqlite::register, wat_telemetry_sqlite::wat_sources),
     ];
 
-    if pry_mode {
-        batteries.push((wat_pry::register, wat_pry::wat_sources));
+    if pause_mode {
+        batteries.push((wat_pause::register, wat_pause::wat_sources));
     }
     if mcp_mode {
         batteries.push((wat_mcp::register, wat_mcp::wat_sources));
     }
 
-    wat_cli::run_with_args(&args, &batteries, choose_entry_point(pry_mode, mcp_mode))
+    wat_cli::run_with_args(&args, &batteries, choose_entry_point(pause_mode, mcp_mode))
 }
 
-fn choose_entry_point(pry: bool, mcp: bool) -> EntryPointName {
-    match (pry, mcp) {
+fn choose_entry_point(pause: bool, mcp: bool) -> EntryPointName {
+    match (pause, mcp) {
         (false, false) => ":user::main",
         (false, true)  => ":wat::mcp::main",
-        (true,  false) => ":wat::pry::main",
-        (true,  true)  => ":wat::mcp::main",  // MCP wins; agent gets pry through it
+        (true,  false) => ":wat::pause::main",
+        (true,  true)  => ":wat::mcp::main",  // MCP wins; agent gets pause through it
     }
 }
 ```
 
 Without `--mcp`, the `:wat::mcp::*` namespace doesn't exist;
 freeze fails on any reference. Same Path B (freeze-time
-rejection) the pry gating chose.
+rejection) the pause gating chose.
 
-## What `--pry --mcp` together does
+## What `--pause --mcp` together does
 
 A program invoked with both flags loads BOTH batteries. The MCP
 battery's `:wat::mcp::main` is the cli's entry point (MCP
 "wins" when both are set, because the agent on the other end is
-the consumer of choice). But `:wat::pry::*` symbols are also
+the consumer of choice). But `:wat::pause::*` symbols are also
 registered, so:
 
-- The agent can call pry introspection through MCP:
-  `wat-eval (:wat::pry::ls)`.
-- The user's code can use `(:wat::pry::break)` and have it fire
+- The agent can call pause introspection through MCP:
+  `wat-eval (:wat::pause::ls)`.
+- The user's code can use `(:wat::pause::break)` and have it fire
   via the MCP notification protocol.
-- The pry battery's `wat/std/pry.wat` is loaded, but its
-  `:wat::pry::main` (the human-facing terminal loop) is not
+- The pause battery's `wat/std/pause.wat` is loaded, but its
+  `:wat::pause::main` (the human-facing terminal loop) is not
   invoked.
 
-So `--pry --mcp` means "agent-mode with pry primitives enabled."
+So `--pause --mcp` means "agent-mode with pause primitives enabled."
 This is the most common combination for live debugging — the
-agent connects via MCP; the program has `(:wat::pry::break)`
+agent connects via MCP; the program has `(:wat::pause::break)`
 forms in it; both batteries' surfaces are reachable.
 
 `--mcp` alone is "agent-mode without break support." Useful when
-the program doesn't have break forms; saves the (small) pry
+the program doesn't have break forms; saves the (small) pause
 battery overhead.
 
-`--pry` alone is "human-mode; rustyline frontend." No MCP
+`--pause` alone is "human-mode; rustyline frontend." No MCP
 plumbing; just the terminal.
 
-`--pry --mcp` is the developer's everyday flag combination for
+`--pause --mcp` is the developer's everyday flag combination for
 debugging. The cli prints both flag names in startup banner so
 the user knows what mode they're in.
 
 ## Why two flags, not one combined
 
-Considered: a single `--introspect` that enables both pry and
+Considered: a single `--introspect` that enables both pause and
 mcp.
 
 Rejected because the use cases are distinct:
 
-- A production program with `--mcp` and no `--pry` exposes its
+- A production program with `--mcp` and no `--pause` exposes its
   surface to an agent (e.g., a long-running query server) but
-  refuses `(:wat::pry::break)` calls. Production-safe; agent-
+  refuses `(:wat::pause::break)` calls. Production-safe; agent-
   callable.
-- A development session with `--pry` and no `--mcp` is a
+- A development session with `--pause` and no `--mcp` is a
   human-in-terminal flow with no MCP machinery loaded.
-- `--pry --mcp` is the live-debug case.
+- `--pause --mcp` is the live-debug case.
 
 Three modes, three flag combinations. One unified flag would
 muddy the production-vs-development distinction.
 
 ## Production deployment safety
 
-The user's framing for pry gating applies equally to MCP:
+The user's framing for pause gating applies equally to MCP:
 
 > "we ship with [it] but the user must enable it... if we see
 > [an mcp form] and we're not in [mcp] mode - panic"
@@ -121,7 +121,7 @@ expose debug interfaces — opt-in, with operational signaling
 
 - `register(builder: &mut RustDepsBuilder)` — installs the few
   Rust shims for break-as-notification machinery (the session
-  registry, `:wat::pry::override-return`, `:wat::pry::eval-in-frame`).
+  registry, `:wat::pause::override-return`, `:wat::pause::eval-in-frame`).
 - `wat_sources() -> &'static [WatSource]` — returns
   `wat/std/mcp.wat` containing `:wat::mcp::main`,
   `:wat::mcp::dispatch`, and the JSON-RPC framing helpers.
@@ -158,7 +158,7 @@ Same pattern arc 100 documented; MCP is just another battery.
 ## What about test code?
 
 Tests that exercise MCP primitives register the mcp battery
-explicitly, same pattern as pry tests:
+explicitly, same pattern as pause tests:
 
 ```rust
 #[test]
@@ -179,12 +179,12 @@ register both.
 | Flags | Mode | Entry point | Available namespaces |
 |---|---|---|---|
 | (none) | Normal | `:user::main` | `:wat::*` (default), batteries' shims |
-| `--pry` | Human pry | `:wat::pry::main` | + `:wat::pry::*` |
-| `--mcp` | Agent pry | `:wat::mcp::main` | + `:wat::mcp::*`, + `:wat::json::*` (always available) |
-| `--pry --mcp` | Agent + break | `:wat::mcp::main` | + `:wat::pry::*`, + `:wat::mcp::*` |
+| `--pause` | Human pause | `:wat::pause::main` | + `:wat::pause::*` |
+| `--mcp` | Agent pause | `:wat::mcp::main` | + `:wat::mcp::*`, + `:wat::json::*` (always available) |
+| `--pause --mcp` | Agent + break | `:wat::mcp::main` | + `:wat::pause::*`, + `:wat::mcp::*` |
 
 Four combinations; clear semantics for each. Non-flagged builds
-have neither pry nor mcp loaded — production-safe by default,
+have neither pause nor mcp loaded — production-safe by default,
 opt-in by flag.
 
 ## Summary
@@ -198,8 +198,8 @@ The user's discipline holds at every layer:
 
 > "we ship with [it] but the user must enable it"
 
-Wat-rs ships with three new batteries (wat-pry, wat-mcp,
+Wat-rs ships with three new batteries (wat-pause, wat-mcp,
 wat-json). Two of them gate behind explicit flags. One
 (wat-json) is always available because it's general-purpose
-infrastructure. Each opts in via the cli's `--pry` / `--mcp`
+infrastructure. Each opts in via the cli's `--pause` / `--mcp`
 flags or via downstream consumers' own battery composition.

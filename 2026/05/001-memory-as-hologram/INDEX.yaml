@@ -191,3 +191,115 @@ status: open
 #   memory ASTs as canonical EDN. End-to-end against the live
 #   ~80 memory tree. Subjective sanity check: "did the recall
 #   surface the memories I'd want for this query?"
+
+# ─── Captured beats (post-original-design) ───
+captured-beats:
+  - date: 2026-05-03
+    topic: schema-validated memory operations via wat-http-api
+    triggered-by: |
+      Per the conversation that opened arcs 009-016 (HTTP layer +
+      schema + spec-driven API), the user recognized:
+
+      > "hell.... we could have full io integ... the spec can bounce
+      > bad reqs.... if you don't conform you get a 400... this could
+      > be how we implement the holographic memory...."
+
+      And then explicitly asked to revisit this arc:
+
+      > "i don't recall how we expessed holographic memory.. but maybe
+      > that doc gets some updates.. or its a new arc..."
+
+      Decision: UPDATE this arc, not new. The original design (memories
+      as HolonASTs; HologramStore; one-cosine recall; canonical EDN;
+      MCP delivery) stays valid. The new arcs make the MCP-delivery
+      half cleaner.
+
+    captured: |
+      THE ADDITION (not a redesign — an upgrade to the delivery surface):
+
+      The original design said "MCP is the delivery vehicle." That stands.
+      What's new with arcs 013-016 in scratch:
+
+      Memory operations can be encoded as a wat-http-api-spec. Each
+      operation (store, probe, recall, etc.) has a typed input shape, a
+      typed output shape, declared error variants. Schema validation
+      runs at the API boundary; bad shapes get 400'd before reaching
+      the memory substrate.
+
+      Sketch:
+
+        (:wat::http::api::spec::define :wat::memory::api-spec
+          (:type :MemoryProbe (:shape (:axes (:vec :Symbol))
+                                      (:vector :Vec)
+                                      (:limit (:i64 :range 1 100))))
+
+          (:operation :memory/store
+            :input  (:shape (:vector :Vec) (:tags (:vec :Symbol)))
+            :output (:status 201 :body (:shape (:id :uuid)))
+            :errors [:CapacityExhausted :ValidationFailed])
+
+          (:operation :memory/probe
+            :input  :MemoryProbe
+            :output (:status 200 :body (:shape (:matches (:vec :MemoryMatch))))
+            :errors [:NoMatchesFound])
+
+          (:operation :memory/recall
+            :input  (:shape (:id :uuid))
+            :output (:status 200 :body :MemoryRecord)
+            :errors [:NotFound]))
+
+      WHAT THIS UPGRADE GIVES THE MEMORY SUBSTRATE:
+
+      1. The schema IS the memory consistency invariant. Bad-shape
+         writes can't reach the holographic store. Reads return only
+         spec-shaped values.
+      2. Type safety end-to-end. Memory clients (Claude via MCP) get
+         typed input constructors and typed output decoders. Memory
+         drift between clients and the substrate is structurally
+         impossible (per arc 014's drift-impossibility property).
+      3. Auditable per request. Every memory op flows through the
+         spec-driven api-server (arc 015); standard logging /
+         metrics / rate-limit middleware applies for free.
+      4. Versioning. Memory schema can evolve (additive); old
+         clients see the compatible subset; new clients use new
+         operations. Same pattern as any production API.
+      5. Security via positive shape enforcement. The user explicitly
+         named this connection — "the spec can bounce bad reqs" — for
+         memory ops, this means malformed probes / writes / queries
+         can't corrupt the holographic store.
+
+      THE REVISED MCP DELIVERY:
+
+      Original design (locked decision #5):
+        > "MCP is the delivery vehicle. wat-mcp's 'one tool'
+        > architecture publishes (:wat::memory::recall scope-edn n)
+        > -> Vec<MemoryAST-as-EDN> as the agent-facing surface."
+
+      Refined: wat-mcp itself is now reframed (per 006's captured-beat
+      from 2026-05-03) as a wat-http-api-server instance whose spec
+      is the MCP protocol. The memory operations are EITHER:
+      (a) tools registered under MCP's standard tools/call surface
+          (compatible with all MCP clients; no special protocol)
+      (b) a separate api-server instance the agent calls directly via
+          wat-http-api-client (typed; sidesteps MCP's JSON-RPC
+          framing for performance-sensitive calls)
+
+      Both options work; (a) is the obvious default for agent-facing
+      memory; (b) is for substrate-internal memory access. Decide at
+      slice planning time.
+
+    docs-updated:
+      - INDEX.yaml: this captured-beat
+      - architecture.md: should be revisited to note the api-server
+        path (deferred until slice planning revisits the memory arc)
+      - slice-plan.md: should be revisited; some of the "publish
+        via MCP" work is now upstream in arcs 014-016 (deferred)
+
+    cross-references-added:
+      - arc 013 (wat-schema) — provides validation primitive
+      - arc 014 (wat-http-api-spec) — provides spec primitive
+      - arc 015 (wat-http-api-server) — serves the memory api
+      - arc 016 (wat-http-api-client) — client-side typed access
+      - arc 006 (wat-mcp) — captured-beat 2026-05-03 reframes MCP
+        as a wat-http-api-server too; both arcs' deliverables
+        compose cleanly through the same stack

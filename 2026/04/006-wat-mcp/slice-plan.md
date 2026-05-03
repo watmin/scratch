@@ -28,8 +28,8 @@ Open the wat-json arc first; close it; then open 006 slices.
 
 ## Slice 1 — Basic MCP eval
 
-**Depends on:** 005 slice 1 (`:wat::pry::ls`, `:wat::pry::show`,
-`:wat::pry::completions`) + wat-json arc.
+**Depends on:** 005 slice 1 (`:wat::pause::ls`, `:wat::pause::show`,
+`:wat::pause::completions`) + wat-json arc.
 
 **What ships:**
 
@@ -50,7 +50,7 @@ Open the wat-json arc first; close it; then open 006 slices.
 - wat-cli additions:
   - `--mcp` argv flag.
   - Conditional mcp-battery registration (gating; mirrors
-    `--pry`).
+    `--pause`).
   - Entry-point lookup swap to `:wat::mcp::main` when in mcp
     mode.
 
@@ -62,13 +62,13 @@ Open the wat-json arc first; close it; then open 006 slices.
 - `tools/call wat-eval msg=<edn>` evaluates against the frozen
   world; returns EDN result.
 - Eval errors return as JSON-RPC errors.
-- Discovery via `wat-eval (:wat::pry::ls ...)` and similar.
+- Discovery via `wat-eval (:wat::pause::ls ...)` and similar.
 - All non-break wat operations work — the agent has full access
   to the program's symbol table.
 
 **What doesn't work yet:**
 
-- `(:wat::pry::break)` notification — slice 2.
+- `(:wat::pause::break)` notification — slice 2.
 - Counterfactual returns (`override-return`) — slice 3.
 - Remote TCP attach — slice 4.
 
@@ -81,16 +81,16 @@ arc are done).
 - Agent (or test harness simulating one) sends
   `tools/call wat-eval msg="(:foo 5)"`.
 - Substrate returns `5` (or whatever the function computes).
-- Agent sends `wat-eval (:wat::pry::ls)`.
+- Agent sends `wat-eval (:wat::pause::ls)`.
 - Substrate returns the symbol list including `:foo`.
-- Agent sends `wat-eval (:wat::pry::show :foo)`.
+- Agent sends `wat-eval (:wat::pause::show :foo)`.
 - Substrate returns the function's source.
 
 ---
 
 ## Slice 2 — Break-as-notification
 
-**Depends on:** 005 slice 2 (`:wat::pry::break-with-stdio` +
+**Depends on:** 005 slice 2 (`:wat::pause::break-with-stdio` +
 FrameInfo::env) + slice 1 of 006.
 
 **What ships:**
@@ -99,33 +99,33 @@ FrameInfo::env) + slice 1 of 006.
   `HashMap<SessionId, PausedSession>` storing captured Environment,
   CALL_STACK, suspended call ID.
 - Substrate primitive: MCP-aware variant of break — when
-  `:wat::pry::break-with-stdio` is invoked under MCP mode, it
+  `:wat::pause::break-with-stdio` is invoked under MCP mode, it
   emits a JSON-RPC notification, suspends the original eval,
   registers a session.
-- Substrate primitive: `:wat::pry::continue` — closes a session;
+- Substrate primitive: `:wat::pause::continue` — closes a session;
   resumes the suspended eval.
 - `wat-eval-stream` tool — second MCP tool that supports
   pause-and-resume semantics. Includes `session` parameter for
   follow-up calls during a break.
 - `wat-eval` (slice 1's tool) gains optional `session` parameter
   to route eval calls to a paused session's captured Environment.
-- `:wat::mcp::dispatch` recognizes notifications/pry/break and
+- `:wat::mcp::dispatch` recognizes notifications/pause/break and
   emits them when paused sessions need agent input.
 
 **What works at the end:**
 
-- A wat program with `(:wat::pry::break)` inside a function body.
+- A wat program with `(:wat::pause::break)` inside a function body.
 - Agent calls `wat-eval-stream` to invoke the function.
 - When break fires, agent receives a notification with session
   ID, file/line/col, env summary.
 - Agent makes follow-up `wat-eval` calls with the session ID to
   inspect the captured Environment.
-- Agent sends `wat-eval session=X (:wat::pry::continue)` to
+- Agent sends `wat-eval session=X (:wat::pause::continue)` to
   resume.
 - Original `wat-eval-stream` call returns with the function's
   actual return value.
-- Multi-frame inspection works via `:wat::pry::up` /
-  `:wat::pry::down` (reusing 005's primitives).
+- Multi-frame inspection works via `:wat::pause::up` /
+  `:wat::pause::down` (reusing 005's primitives).
 
 **What doesn't work yet:**
 
@@ -135,14 +135,14 @@ FrameInfo::env) + slice 1 of 006.
 **Estimated effort:** 3-4 days.
 
 **Acceptance bar:**
-- A wat program with `(:wat::pry::break)` in a function body;
+- A wat program with `(:wat::pause::break)` in a function body;
   function called via `wat-eval-stream`.
 - Agent receives a notification with session id.
-- Agent calls `wat-eval session=X (:wat::pry::env)` and sees
+- Agent calls `wat-eval session=X (:wat::pause::env)` and sees
   the locals.
 - Agent calls `wat-eval session=X (some-arbitrary-expression)`
   and sees the result evaluated against the captured scope.
-- Agent calls `wat-eval session=X (:wat::pry::continue)`.
+- Agent calls `wat-eval session=X (:wat::pause::continue)`.
 - Original `wat-eval-stream` call returns; agent sees the
   function's return value.
 - All transcripts captured in integration tests.
@@ -155,28 +155,28 @@ FrameInfo::env) + slice 1 of 006.
 
 **What ships:**
 
-- Substrate primitive: `:wat::pry::override-return :T -> :()`
+- Substrate primitive: `:wat::pause::override-return :T -> :()`
   — force-return from the current paused frame with a specific
   value. The original suspended call ends; `wat-eval-stream`
   returns the override value as the function's "actual" result.
-- Substrate primitive: `:wat::pry::eval-in-frame :i64 :String -> :T`
+- Substrate primitive: `:wat::pause::eval-in-frame :i64 :String -> :T`
   — evaluate an expression against a specific frame's
   Environment, addressed by index (0 = bottom of stack).
   Doesn't change the active frame; just one-shot eval at a
   different scope.
 - `wat/std/mcp.wat` extensions: surface these in the agent's
-  pry-command vocabulary.
+  pause-command vocabulary.
 
 **What works at the end:**
 
 - Agent in a break can hypothesize: "what if compute-decision
   returned :Action::Sell here?" — sends
-  `wat-eval session=X (:wat::pry::override-return :Action::Sell)`.
+  `wat-eval session=X (:wat::pause::override-return :Action::Sell)`.
   The function unwinds with that value; downstream code receives
   it; agent sees the cascade.
 - Agent can read state from any frame without walking:
-  `wat-eval session=X (:wat::pry::eval-in-frame 0 candle)`.
-- Combined with slice 2's tools, agent has the full pry
+  `wat-eval session=X (:wat::pause::eval-in-frame 0 candle)`.
+- Combined with slice 2's tools, agent has the full pause
   inspection surface plus counterfactual control.
 
 **What doesn't work yet:**
@@ -199,7 +199,7 @@ FrameInfo::env) + slice 1 of 006.
 ## Slice 4 (deferred) — TCP attach for remote MCP
 
 **Depends on:** 006 slice 3, plus possibly 005 slice 5 (TCP
-attach for human pry; same machinery).
+attach for human pause; same machinery).
 
 **What ships:**
 
@@ -243,16 +243,16 @@ demands.
 
 ## Critical path with 005
 
-The full critical path from "no pry, no mcp" to "feature-
-complete pry + mcp":
+The full critical path from "no pause, no mcp" to "feature-
+complete pause + mcp":
 
-1. 005 slice 1 (bare pry mode + introspection): 3-4 days
+1. 005 slice 1 (bare pause mode + introspection): 3-4 days
 2. 005 slice 2 (break primitive + FrameInfo::env): 3-4 days
 3. wat-json arc (JSON I/O): 3-4 days
 4. 006 slice 1 (basic MCP eval): 3-4 days
 5. 006 slice 2 (break-as-notification): 3-4 days
 
-Subtotal: ~15-20 days for both pry experiences (human and
+Subtotal: ~15-20 days for both pause experiences (human and
 agent) + their core debugging features.
 
 005 slice 3 (rustyline) and 006 slice 3 (counterfactuals) and
@@ -264,7 +264,7 @@ demand.
 Same disclaimer that applied to 005:
 
 This isn't a substrate redesign. The substrate has shipped
-nearly everything pry+MCP need across arcs 097-104 (and earlier
+nearly everything pause+MCP need across arcs 097-104 (and earlier
 arcs for type-checking, eval, etc.). 005 + 006 are packaging
 layers exposing existing capabilities through new envelopes.
 
@@ -276,8 +276,8 @@ naming it." 005 and 006 are the naming.
 
 When the user is ready to open the wat-rs arcs, the order:
 
-1. Open arc XXX-wat-pry-1 (005-1's substrate work).
-2. Open arc XXX+1-wat-pry-break (005-2's break primitive).
+1. Open arc XXX-wat-pause-1 (005-1's substrate work).
+2. Open arc XXX+1-wat-pause-break (005-2's break primitive).
 3. Open arc XXX+2-wat-json (the prerequisite).
 4. Open arc XXX+3-wat-mcp-1 (006-1's basic eval).
 5. Open arc XXX+4-wat-mcp-break (006-2's break-as-notification).

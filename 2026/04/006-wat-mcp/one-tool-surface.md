@@ -42,7 +42,7 @@ substrate doesn't translate between type systems.
 
 1. **`initialize`** handshake — substrate responds with server
    info + capabilities (`tools` capability supported,
-   `notifications/pry/break` supported, etc.).
+   `notifications/pause/break` supported, etc.).
 
 2. **`tools/list`** — substrate responds with a one-element list
    containing the `wat-eval` tool definition above. The agent
@@ -57,13 +57,13 @@ substrate doesn't translate between type systems.
   "method": "tools/call",
   "params": {
     "name": "wat-eval",
-    "arguments": {"msg": "(:wat::pry::ls)"}
+    "arguments": {"msg": "(:wat::pause::ls)"}
   }
 }
 ```
 
-Substrate evaluates `(:wat::pry::ls)` (the introspection primitive
-shipped by 005-wat-pry slice 1), serializes the result as EDN,
+Substrate evaluates `(:wat::pause::ls)` (the introspection primitive
+shipped by 005-wat-pause slice 1), serializes the result as EDN,
 returns:
 
 ```json
@@ -75,7 +75,7 @@ returns:
 ```
 
 The agent now has the full list of callable symbols. From there
-it can `wat-eval (:wat::pry::show :symbol)` to read source,
+it can `wat-eval (:wat::pause::show :symbol)` to read source,
 `wat-eval (:trading::compute-decision candle)` to invoke, or
 build any composition in one expression.
 
@@ -105,7 +105,7 @@ struct mid-session — none of these change the tool surface
 the agent sees. The agent's tool list never goes stale; never
 needs reloading; never lies about what's available.
 
-The agent's discovery via `(:wat::pry::ls)` always reflects
+The agent's discovery via `(:wat::pause::ls)` always reflects
 current state. Agent re-queries on demand if it suspects the
 SymbolTable changed (it didn't; the freeze invariant prevents
 runtime additions).
@@ -129,7 +129,7 @@ Wat's type system has shapes JSON Schema struggles with:
 
 By keeping wat types behind the EDN-string boundary, the
 substrate avoids all of these. Agents that want to reason about
-types call `(:wat::pry::show :symbol)` which returns the wat
+types call `(:wat::pause::show :symbol)` which returns the wat
 source verbatim; they get the type expression in its native
 form.
 
@@ -148,7 +148,7 @@ fires:
 {
   "content": [
     {"type": "text", "text": "(:break-info ...)"},
-    {"type": "resource", "uri": "pry://session/abc123/continue"}
+    {"type": "resource", "uri": "pause://session/abc123/continue"}
   ]
 }
 ```
@@ -159,7 +159,7 @@ awkward; the resource URI shape is stretched.
 **Shape B — separate `wat-eval-stream` tool:**
 
 `wat-eval-stream` returns immediately with a pending-call ID. Agent
-calls additional tools (`wat-pry-inspect`, `wat-pry-continue`)
+calls additional tools (`wat-pause-inspect`, `wat-pause-continue`)
 referencing the ID. The substrate keeps the original eval
 suspended.
 
@@ -179,18 +179,18 @@ protocol.
 A typical agent session against a wat-mcp server:
 
 ```
-agent → wat-eval (:wat::pry::ls :trading)
+agent → wat-eval (:wat::pause::ls :trading)
 agent ← [:trading::types::Candle, :trading::types::Direction,
          :trading::compute-decision, :trading::rsi, ...]
 
-agent → wat-eval (:wat::pry::show :trading::compute-decision)
+agent → wat-eval (:wat::pause::show :trading::compute-decision)
 agent ← "fn :trading::compute-decision (candle :Candle) -> :Action
          (let* (((rsi :f64) (:trading::rsi candle))
                 ((vol :f64) (:trading::vol candle))
                 ...)
            (:trading::action regime rsi vol))"
 
-agent → wat-eval (:wat::pry::show :trading::types::Candle)
+agent → wat-eval (:wat::pause::show :trading::types::Candle)
 agent ← "struct :trading::types::Candle
            open    :f64
            high    :f64
@@ -215,9 +215,9 @@ training. Once it learns wat (from documentation or by reading
 the BOOK), every wat-mcp server is reachable through the same
 discipline:
 
-- `(:wat::pry::ls :prefix)` — list available symbols.
-- `(:wat::pry::show :symbol)` — read source / signature.
-- `(:wat::pry::completions :prefix)` — narrow the surface.
+- `(:wat::pause::ls :prefix)` — list available symbols.
+- `(:wat::pause::show :symbol)` — read source / signature.
+- `(:wat::pause::completions :prefix)` — narrow the surface.
 - `(<the symbol> args...)` — invoke.
 - `(:wat::core::let* ...)` — compose.
 

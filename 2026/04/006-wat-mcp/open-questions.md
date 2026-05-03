@@ -8,14 +8,14 @@ close. Pattern matches 005's open-questions.md.
 - **One MCP tool: `wat-eval`.** Single string parameter; EDN
   payload inside JSON envelope.
 - **Discovery via wat introspection** — agent calls
-  `(:wat::pry::ls)` and `(:wat::pry::show :sym)` through
+  `(:wat::pause::ls)` and `(:wat::pause::show :sym)` through
   `wat-eval` to learn the surface.
 - **Break-as-notification** — JSON-RPC notification when
-  `(:wat::pry::break)` fires; suspended call resumes via
-  `(:wat::pry::continue)`.
+  `(:wat::pause::break)` fires; suspended call resumes via
+  `(:wat::pause::continue)`.
 - **JSON I/O is the prerequisite.** Ships as `wat-json` battery
   before 006 slices.
-- **Gating via `--mcp`** — same mechanism as `--pry`. MCP
+- **Gating via `--mcp`** — same mechanism as `--pause`. MCP
   battery conditionally registered; freeze fails on `:wat::mcp::*`
   references without the flag.
 - **006 depends on 005 slices 1+2.** No reimplementation;
@@ -70,7 +70,7 @@ that's currently paused at a break?
 - **Discard the session.** The substrate aborts the suspended
   eval; no return value sent; session deregistered.
 - **Resume with a sentinel.** The substrate calls
-  `(:wat::pry::override-return :wat::mcp::cancelled)` internally;
+  `(:wat::pause::override-return :wat::mcp::cancelled)` internally;
   the function unwinds; downstream code sees a sentinel value.
 - **Refuse cancellation while paused.** The agent must explicitly
   resume; cancellation only applies to non-paused calls.
@@ -95,7 +95,7 @@ wat-mcp the minimum:
 ```
 
 `tools.listChanged: false` because wat-mcp's tool list is
-constant. The pry experimental capability indicates support for
+constant. The pause experimental capability indicates support for
 the break protocol.
 
 **Open:** what other capabilities does MCP convention expect?
@@ -251,8 +251,8 @@ agent's tool list. What should it say?
 > Evaluate a wat expression against the frozen world. Input is
 > an EDN-encoded form in the `msg` field. Output is the
 > EDN-encoded result, or a wat error wrapped as `:Result::Err`.
-> Use `(:wat::pry::ls)` to list visible symbols and
-> `(:wat::pry::show :sym)` to read source. The freeze invariant
+> Use `(:wat::pause::ls)` to list visible symbols and
+> `(:wat::pause::show :sym)` to read source. The freeze invariant
 > applies — define / redefine / load forms are forbidden.
 
 Short, points the agent at introspection, names the constraints.

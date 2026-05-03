@@ -1,6 +1,6 @@
 # Scratch arc — wat-mcp — wat programs as MCP servers
 #
-# Continuation of 005-wat-pry. After the pry shape locked, the user
+# Continuation of 005-wat-pause. After the pause shape locked, the user
 # saw the bigger move: with one envelope swap (EDN+newline →
 # JSON-RPC over stdio), wat programs become MCP servers with
 # binding.pry-shaped agent-driven debugging. The substrate's prior
@@ -10,12 +10,16 @@ arc:
   slug: wat-mcp
   date: 2026-04-29
   triggered-by: |
-    Continuation of 005-wat-pry conversation. After the pry
+    Continuation of 005-wat-pause conversation. After the pause
     primitives + slice plan locked, user said:
 
     > "i just had a wild idea.... you talked about a :wat::pry::serve
     > ... what if... we could have a program-as-an-mcp.... give the
     > agent a way to run a program /and/ live debug it?..."
+
+    [Quote preserved as spoken; arc 005 was named `wat-pry` at the
+    time. Renamed to `wat-pause` on 2026-05-03. See captured-beats
+    below for the rename + the architectural reframe.]
 
     Initial sketch involved JSON Schema generation + per-function
     MCP tool registration + JSON-to-wat type transcoding. User
@@ -27,7 +31,7 @@ arc:
     JSON-RPC is just envelope; the payload is wat source as a
     string. The substrate doesn't translate types. The agent talks
     wat directly. **One MCP tool: `wat-eval`.** Discovery via
-    wat introspection (`(:wat::pry::ls)`, `(:wat::pry::show :sym)`).
+    wat introspection (`(:wat::pause::ls)`, `(:wat::pause::show :sym)`).
     Same hologram model — the agent is another caller through the
     surface; freeze invariant gates what they can do.
 
@@ -37,14 +41,14 @@ arc:
          No JSON Schema generation; no per-function tools.
       2. ONE MCP tool — `wat-eval` (and `wat-eval-stream` for
          break-mode). Discovery via wat itself.
-      3. Break-as-notification: when (:wat::pry::break) fires
+      3. Break-as-notification: when (:wat::pause::break) fires
          under MCP, substrate sends JSON-RPC notification, leaves
          original call suspended; agent inspects via more
-         wat-eval calls; (:wat::pry::continue) resumes.
+         wat-eval calls; (:wat::pause::continue) resumes.
       4. wat-json battery is the one substrate prerequisite (Path
          A — battery wraps serde_json over Path B — wat-level
          parser).
-      5. Gating via --mcp flag, mirrors --pry mechanism. mcp
+      5. Gating via --mcp flag, mirrors --pause mechanism. mcp
          battery conditionally registered.
       6. 006 depends on 005 slices 1+2; reuses substrate primitives
          without reimplementation.
@@ -66,7 +70,7 @@ conventions:
   - distinguish user-original insight from thinking-with extension
   - the assistant DID NOT touch wat-rs or the lab during this scratch;
     only the scratch dir itself
-  - sibling to 005-wat-pry; reference cross-cuts where relevant
+  - sibling to 005-wat-pause; reference cross-cuts where relevant
 
 # ─── Beat-by-beat capture ───
 notes:
@@ -111,7 +115,7 @@ notes:
       stays stable as SymbolTable grows — adding a battery
       doesn't change the tool surface, (c) JSON Schema doesn't
       fit wat's parametric / sum / recursive types cleanly.
-      Discovery: agent calls (:wat::pry::ls) and (:wat::pry::show
+      Discovery: agent calls (:wat::pause::ls) and (:wat::pause::show
       :sym) through wat-eval. The substrate's introspection IS
       the API documentation. Five idioms; agent learns wat once;
       every wat-mcp server is reachable through the same
@@ -123,18 +127,18 @@ notes:
     follows: one-tool-surface.md
     summary: |
       The user's framed goal: "give the agent a way to run a
-      program /and/ live debug it". (:wat::pry::break) already
+      program /and/ live debug it". (:wat::pause::break) already
       exists from 005 slice 2. MCP-mode wraps it: when the break
       fires during a wat-eval-stream call, the substrate sends a
       JSON-RPC notification (with session ID, file/line/col, env
       keys), leaves the original call suspended. Agent makes
       follow-up wat-eval calls referencing the session ID;
-      these route to the captured Environment. (:wat::pry::continue)
+      these route to the captured Environment. (:wat::pause::continue)
       releases; original call returns. Special operations:
       :override-return forces a function to return a specific
       value (counterfactual debugging); :eval-in-frame reads
       from any captured frame by index. The agent becomes the
-      pry frontend. Three rules; substrate handles the suspended-
+      pause frontend. Three rules; substrate handles the suspended-
       call mechanics. Maybe ~320 lines Rust + ~150 lines wat
       compared to ~5000 for a custom debugger client/server.
 
@@ -159,13 +163,13 @@ notes:
     follows: json-prerequisite.md
     summary: |
       Same Path B (freeze-time rejection) gating mechanism as
-      005-wat-pry. --mcp flag mirrors --pry. Both batteries can
-      coexist (--pry --mcp loads both); MCP wins entry-point
+      005-wat-pause. --mcp flag mirrors --pause. Both batteries can
+      coexist (--pause --mcp loads both); MCP wins entry-point
       lookup if both set. Gate matrix: no flag → :user::main;
-      --pry alone → :wat::pry::main (rustyline); --mcp alone →
-      :wat::mcp::main (JSON-RPC); --pry --mcp → :wat::mcp::main
-      with pry primitives loaded. Production deployments without
-      flags don't host pry or mcp surfaces — opt-in by flag.
+      --pause alone → :wat::pause::main (rustyline); --mcp alone →
+      :wat::mcp::main (JSON-RPC); --pause --mcp → :wat::mcp::main
+      with pause primitives loaded. Production deployments without
+      flags don't host pause or mcp surfaces — opt-in by flag.
       Composes with arc 100's wat_cli::run(&[Battery]); custom
       consumers add the mcp battery to their own CLIs by the
       same pattern.
@@ -197,7 +201,7 @@ notes:
     summary: |
       Names which 005 primitives 006 reuses (break-with-stdio,
       Environment capture, FrameInfo::env, ls/show/completions,
-      where/frames, last-error, wat/std/pry.wat patterns) and
+      where/frames, last-error, wat/std/pause.wat patterns) and
       what 006 adds (wat-json dep, session registry, MCP
       dispatch, override-return, eval-in-frame). Slicing
       dependency: 005-1 → 005-2 → wat-json → 006-1 → 006-2.
@@ -223,7 +227,7 @@ notes:
       production deployment work, security concerns). First
       three slices: ~7-9 days for full agent-driven debugging
       experience over local stdio. Critical path with 005:
-      ~15-20 days for both pry experiences + their core
+      ~15-20 days for both pause experiences + their core
       debugging features.
 
   - file: open-questions.md
@@ -265,7 +269,7 @@ status: open
 #   2. One MCP tool (wat-eval); discovery via wat              (beat 2)
 #   3. Break-as-notification protocol                          (beat 3)
 #   4. wat-json battery as the prerequisite                    (beat 4)
-#   5. Gating via --mcp flag (mirrors --pry)                   (beat 5)
+#   5. Gating via --mcp flag (mirrors --pause)                   (beat 5)
 #   6. Sibling to 005, depends on 005 slices 1+2               (beat 7)
 #
 # Plus four shape decisions:
@@ -275,8 +279,8 @@ status: open
 #  10. Trying to fold 006 into 005 rejected — different consumers (beat 7)
 #
 # Ready to migrate to wat-rs arcs in this order:
-#   1. 005-wat-pry slice 1 substrate work
-#   2. 005-wat-pry slice 2 (break primitive + FrameInfo::env)
+#   1. 005-wat-pause slice 1 substrate work
+#   2. 005-wat-pause slice 2 (break primitive + FrameInfo::env)
 #   3. wat-json arc
 #   4. 006-wat-mcp slice 1 (basic MCP eval)
 #   5. 006-wat-mcp slice 2 (break-as-notification)
@@ -288,8 +292,8 @@ status: open
 #   tools/list returns the single wat-eval tool.
 #   tools/call wat-eval msg="(:foo 5)" evaluates against the
 #     frozen world; returns 5 (or whatever the function computes).
-#   Discovery via wat-eval (:wat::pry::ls) works.
-#   Discovery via wat-eval (:wat::pry::show :foo) works.
+#   Discovery via wat-eval (:wat::pause::ls) works.
+#   Discovery via wat-eval (:wat::pause::show :foo) works.
 #   wat (no --mcp flag) on a source file containing
 #     (:wat::mcp::*) reference fails freeze with
 #     UnknownFunction(":wat::mcp::*").
@@ -302,3 +306,158 @@ status: open
 #   - A separate conversation surfaces wat-json for non-MCP
 #     reasons (HTTP server battery, log formatting), which
 #     could trigger 006 ahead of schedule.
+
+# ─── Captured beats (post-original-design) ───
+captured-beats:
+  - date: 2026-05-03
+    topic: rename — wat-pry → wat-pause cascades through 006
+    triggered-by: |
+      Per arc 005's rename (wat-pry → wat-pause), all references in
+      this arc cascaded:
+      - :wat::pry::* → :wat::pause::*
+      - --pry → --pause
+      - 005-wat-pry/ path → 005-wat-pause/ path
+      - wat_pry::register → wat_pause::register
+
+      Verbatim user quotes from 2026-04-29 preserved with bracket
+      notes pointing at this captured-beat. binding.pry references
+      preserved (Ruby method name).
+    captured: |
+      Mechanical rename. No design changes. Original 006 design
+      stays valid; substrate primitives now live under :wat::pause::
+      instead of :wat::pry::.
+
+  - date: 2026-05-03
+    topic: architectural reframe — wat-mcp = wat-http-api-server instance
+    triggered-by: |
+      Per the conversation that opened arcs 009-016 (HTTP layer +
+      schema + spec-driven API), the user recognized:
+
+      > "so.... did we just satisfy the ground constraints to build
+      > the mcp?... we need the http server+client router, api-spec
+      > +client,server?...
+      >
+      > if we deliver these... we can satisfy an mcp on loopback that
+      > we could plug into yourself?..."
+
+      And after assistant walked through the implications:
+
+      > "i say we refine the mcp idea with our http foundations
+      > being better understood and we add if necessary we capture
+      > a new arc..."
+
+    captured: |
+      THE REFRAME:
+
+      The original 006 design (2026-04-29) used the pipe protocol +
+      JSON envelopes (the only transport options the substrate
+      had at the time). With arcs 009-016 in scratch, wat-mcp can
+      be implemented MUCH more cleanly:
+
+        wat-mcp = a wat-http-api-server instance whose spec is the
+                  MCP protocol encoded as a wat-http-api-spec
+
+      Concretely:
+
+        ;; The MCP protocol IS a spec
+        (:wat::http::api::spec::define :wat::mcp::spec
+          (:operation :tools/list ...)
+          (:operation :tools/call
+            :input  (:shape (:name :string)
+                            (:arguments :HolonAST))
+            :output (:status 200 :body :ToolResult)
+            :errors [:ToolNotFound :BadArguments :ToolError])
+          (:operation :resources/list ...)
+          (:operation :resources/read ...)
+          (:operation :prompts/list ...)
+          (:operation :prompts/get ...))
+
+        ;; wat-mcp uses wat-http-api-server to serve this spec
+        (:wat::http::api::server::generate :wat::mcp::server
+          :spec :wat::mcp::spec)
+
+        ;; User extends with their own tool handlers
+        (:wat::http::api::server::define-handler
+          :wat::mcp::server :tools/call
+          ...dispatch by tool name...)
+
+      WHAT THIS REFRAME GIVES US:
+
+      1. Schema validation on every MCP request/response (via arc 013
+         wat-schema; positive security at the boundary)
+      2. Auto-generated routes for the standard MCP tool surface
+      3. Consistent error envelope (matches JSON-RPC error shape)
+      4. Auth middleware (the spec declares :auth; the server enforces;
+         needed for production MCP deployments where multiple agents
+         attach)
+      5. Drift impossibility: any wat-http-api-client (used by Claude or
+         any MCP client) compiles against the same spec; client and
+         server cannot drift in shape
+      6. The two protocols on the same handler property (arc 009):
+         JSON-RPC over HTTP for standard MCP clients; native EDN
+         envelope for wat-network peers; same handler
+
+      THE TWO MODES THE USER NAMED:
+
+      Mode A — Pure sandbox eval (zero IO; pure functions)
+
+        wat-mcp's `wat-eval` tool runs the form in a sandboxed
+        wat-vm. NO IO syscalls (network; filesystem; clock;
+        randomness). Pure functions only. Bounded compute.
+
+        This needs a wat-rs SUBSTRATE QUESTION: does wat-vm
+        support a capability-restricted "no IO" mode? If not,
+        that's a separate substrate arc to open. The pure-eval-
+        via-MCP vision depends on this capability.
+
+      Mode B — Full IO with spec validation
+
+        wat-mcp tool handlers can do anything wat can do; schema
+        on each tool's input/output catches bad shapes at the
+        boundary. This is the original 006 design, now with
+        proper schema enforcement (arc 013) instead of ad-hoc
+        validation.
+
+      THE LARGER RECOGNITION:
+
+      "Wat all the way down" — homoiconicity from protocol to eval.
+      Transport = HTTP. Protocol envelope = MCP (JSON-RPC).
+      Spec = wat (using wat-http-api-spec). Server = wat (using
+      wat-http-api-server). Validation = wat (using wat-schema).
+      Eval target = wat (in wat-vm). Result = wat (HolonAST).
+
+      Claude becomes a programmer of the wat-vm in real time.
+      Not generating text that gets parsed; not generating Rust
+      that gets compiled. Generating wat ASTs that get evaluated.
+      The LLM IS the live programmer; wat-vm IS the live runtime;
+      MCP IS the wire.
+
+      This was already captured as a beat in 005-wat-pause/INDEX
+      (the MCP / Claude-as-measurer vision). This captured-beat
+      is the implementation-side companion: how the substrate's
+      design actually delivers that vision once arcs 009-016 land.
+
+    docs-updated:
+      - INDEX.yaml: this captured-beat (the rename + the
+        architectural reframe)
+      - README.md: verbatim quote restored with bracket note about
+        the rename
+      - All other in-arc files: pry → pause cascade applied;
+        Ruby references preserved
+
+    pending-substrate-questions:
+      - Does wat-vm support a sandbox / capability-restricted mode
+        with zero IO syscalls? (Required for Mode A — pure eval.)
+        If not, that's a wat-rs substrate arc to open separately.
+      - The 006 slice plan (slice-plan.md) was sized against the
+        pipe-protocol implementation. With the HTTP API stack,
+        slice sizing should be revisited — much of slice 1's
+        custom JSON envelope work falls out for free.
+
+    open-followups:
+      - Update 001-memory-as-hologram with a captured-beat noting
+        that schema-validated memory operations (per arc 013) +
+        spec-driven memory-API (per arcs 014/015) is the cleaner
+        implementation path now available. Memory operations
+        become a wat-http-api-spec; schema enforces shape at every
+        read/write/query.

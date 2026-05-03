@@ -4,18 +4,18 @@ The killer use case the user named:
 
 > "give the agent a way to run a program /and/ live debug it"
 
-`(:wat::pry::break)` already exists as 005's substrate primitive
+`(:wat::pause::break)` already exists as 005's substrate primitive
 (slice 2). It captures Environment + CALL_STACK and runs an
-inline pry loop reading from stdin. For a human, that loop reads
+inline pause loop reading from stdin. For a human, that loop reads
 typed lines from a terminal. For an agent, the same shape
 becomes: emit a JSON-RPC notification, suspend the call, expose
 inspection tools, resume on agent command.
 
 The substrate doesn't grow a new break primitive. The MCP-mode
-break is the same `:wat::pry::break-with-stdio` primitive with a
+break is the same `:wat::pause::break-with-stdio` primitive with a
 flag indicating the loop should speak JSON-RPC to its stdin /
 stdout instead of plain EDN. Or — cleaner — the MCP server
-intercepts the break event before `:wat::pry::serve` enters its
+intercepts the break event before `:wat::pause::serve` enters its
 inner loop, and runs the JSON-RPC variant of the loop instead.
 
 ## The protocol
@@ -36,14 +36,14 @@ inner loop, and runs the JSON-RPC variant of the loop instead.
 
 The agent uses `wat-eval-stream` (not `wat-eval`) because it
 expects this call may pause — the function being called has
-`(:wat::pry::break)` in its body somewhere, and the agent wants
+`(:wat::pause::break)` in its body somewhere, and the agent wants
 to handle the pause interactively.
 
 ### Step 2 — substrate evaluates until break fires
 
 The substrate runs `:trading::compute-decision`. Let-bindings
 fire for `rsi`, `vol`, `regime`. Then evaluation hits
-`(:wat::pry::break)`.
+`(:wat::pause::break)`.
 
 The break primitive captures:
 - The current Environment — `candle`, `rsi`, `vol`, `regime`
@@ -62,9 +62,9 @@ JSON-RPC notification (no `id` field; one-way to client):
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "notifications/pry/break",
+  "method": "notifications/pause/break",
   "params": {
-    "session": "pry-7f3a2c1e",
+    "session": "pause-7f3a2c1e",
     "msg": "(:break-info :file \"trade.wat\" :line 42 :col 7 :function :trading::compute-decision :env-keys [:candle :rsi :vol :regime])"
   }
 }
@@ -84,8 +84,8 @@ Each follow-up call references the session ID:
   "params": {
     "name": "wat-eval",
     "arguments": {
-      "msg": "(:wat::pry::env)",
-      "session": "pry-7f3a2c1e"
+      "msg": "(:wat::pause::env)",
+      "session": "pause-7f3a2c1e"
     }
   }
 }
@@ -103,19 +103,19 @@ Subsequent calls walk frames, evaluate test expressions in the
 captured scope, etc.:
 
 ```
-agent → wat-eval session=pry-7f3a2c1e msg="rsi"
+agent → wat-eval session=pause-7f3a2c1e msg="rsi"
 agent ← 0.6234
 
-agent → wat-eval session=pry-7f3a2c1e msg="(:trading::action regime rsi vol)"
+agent → wat-eval session=pause-7f3a2c1e msg="(:trading::action regime rsi vol)"
 agent ← :Action::Buy
 
-agent → wat-eval session=pry-7f3a2c1e msg="(:wat::pry::frames)"
+agent → wat-eval session=pause-7f3a2c1e msg="(:wat::pause::frames)"
 agent ← [<frame trade.wat:42 compute-decision>, <frame trade.wat:120 :user::main>]
 
-agent → wat-eval session=pry-7f3a2c1e msg="(:wat::pry::up)"
+agent → wat-eval session=pause-7f3a2c1e msg="(:wat::pause::up)"
 agent ← :() ;; eval scope now points at :user::main's frame
 
-agent → wat-eval session=pry-7f3a2c1e msg="stdin"
+agent → wat-eval session=pause-7f3a2c1e msg="stdin"
 agent ← <IOReader> ;; we're in main's scope; stdin is visible here
 ```
 
@@ -127,8 +127,8 @@ agent ← <IOReader> ;; we're in main's scope; stdin is visible here
   "params": {
     "name": "wat-eval",
     "arguments": {
-      "msg": "(:wat::pry::continue)",
-      "session": "pry-7f3a2c1e"
+      "msg": "(:wat::pause::continue)",
+      "session": "pause-7f3a2c1e"
     }
   }
 }
@@ -161,7 +161,7 @@ ID return an error.
 ## What this gives the agent
 
 **Live mid-program inspection without modifying the source.**
-The wat program has `(:wat::pry::break)` in it; the agent
+The wat program has `(:wat::pause::break)` in it; the agent
 connects, calls a function that hits the break, freezes execution
 at that point, inspects everything, makes hypothesis calls
 (running other functions with the captured scope), then resumes
@@ -169,21 +169,21 @@ to see the actual result.
 
 This is what `binding.pry` gives a Ruby developer at a terminal,
 applied to an agent at a JSON-RPC connection. **The agent
-becomes the pry frontend.** Same primitive; different consumer;
+becomes the pause frontend.** Same primitive; different consumer;
 different envelope.
 
 ## Special operations during a break
 
-Some pry operations are powerful enough to deserve naming
+Some pause operations are powerful enough to deserve naming
 explicitly:
 
-### `(:wat::pry::override-return <expression>)`
+### `(:wat::pause::override-return <expression>)`
 
 Force the suspended function to return a specific value
 instead of resuming normally. Example:
 
 ```
-agent → wat-eval session=pry-7f3a2c1e msg="(:wat::pry::override-return :Action::Sell)"
+agent → wat-eval session=pause-7f3a2c1e msg="(:wat::pause::override-return :Action::Sell)"
 ```
 
 The substrate skips the rest of the function body and immediately
@@ -192,28 +192,28 @@ Caller of compute-decision sees this as the function's actual
 return.
 
 This is what makes agent-driven debugging more powerful than a
-human at pry — the agent can hypothesize **"what if this
+human at pause — the agent can hypothesize **"what if this
 function had returned Sell instead of Buy?"** and run downstream
 code against that hypothetical without modifying source. Test
 behavior under counterfactual returns; iterate; resume the
 original or override different functions in subsequent breaks.
 
-### `(:wat::pry::eval-in-frame <frame-idx> <expression>)`
+### `(:wat::pause::eval-in-frame <frame-idx> <expression>)`
 
 Without walking, evaluate an expression in any captured frame's
 scope by index:
 
 ```
-agent → wat-eval session=pry-7f3a2c1e msg="(:wat::pry::eval-in-frame 0 (:trading::types::Candle/open candle))"
+agent → wat-eval session=pause-7f3a2c1e msg="(:wat::pause::eval-in-frame 0 (:trading::types::Candle/open candle))"
 ```
 
 Frame 0 is the bottom of the stack (entry-point). Agent can
 read locals from any depth in one call without walking.
 
-### `(:wat::pry::set-binding! <symbol> <value>)`
+### `(:wat::pause::set-binding! <symbol> <value>)`
 
 **Forbidden by the freeze invariant** — the user explicitly
-named "rust being frozen is a blessing, not a curse." Pry break
+named "rust being frozen is a blessing, not a curse." Pause break
 captures Environment immutably; subsequent calls in the
 captured scope can READ the bindings but not REBIND them.
 
@@ -242,7 +242,7 @@ The break protocol is conceptually simple:
 
 1. Get a notification with a session ID.
 2. Make `wat-eval` calls with that session ID until ready.
-3. Send `(:wat::pry::continue)` (or `override-return`) to
+3. Send `(:wat::pause::continue)` (or `override-return`) to
    release.
 4. Original call's response arrives.
 
@@ -265,7 +265,7 @@ Wat-mcp's debugger protocol is the same protocol the agent uses
 for everything else — `tools/call wat-eval`. The "debugger" is
 "call eval in the captured scope of a paused call." The protocol
 needs no extension; the substrate's introspection (already
-shipped via 005-wat-pry slice 1) covers what dedicated debug
+shipped via 005-wat-pause slice 1) covers what dedicated debug
 protocols expose explicitly.
 
 Three things compose to make this trivial:
@@ -294,9 +294,9 @@ At the substrate level, slice 2 of 006:
 - The notification emitter — when break fires inside an MCP
   eval, emit JSON-RPC notification, suspend the original call.
   ~80 lines.
-- `:wat::pry::override-return` — substrate primitive to
+- `:wat::pause::override-return` — substrate primitive to
   force-return from a paused frame. ~50 lines.
-- `:wat::pry::eval-in-frame` — substrate primitive for
+- `:wat::pause::eval-in-frame` — substrate primitive for
   cross-frame eval. ~40 lines.
 
 ~320 lines of substrate Rust. Plus ~150 lines of wat in
