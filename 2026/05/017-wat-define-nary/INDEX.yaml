@@ -1,0 +1,153 @@
+# Scratch arc — wat-define-nary: N-ary dispatch as a separate define form
+#
+# Substrate-tier design ASK. Captures the design for a new
+# :wat::core::define-nary form (Clojure-style multi-arity dispatch;
+# Erlang-resonance per user). POST-109 work; no implementation
+# until the mass refactor closes.
+
+arc:
+  slug: wat-define-nary
+  date: 2026-05-03
+  triggered-by: |
+    User exploration of N-ary vs convention during the kwargs
+    discussion (arc 008):
+
+    > "i don't know if rust lets us have many sigs for some name?..
+    > but... in wat... we totally can?...
+    >
+    > i guess i'm asking - should we support N-ary or deliver a
+    > convention with our existing tools"
+
+    After surfacing three options (N-ary defn / variadic args /
+    Vec+match) and noting wat doesn't have `[...]` literal syntax,
+    user direction:
+
+    > "wat-rs proper will be extremely verbose and noisey to ensure
+    > correctness we will ship something like wat-common-shortnames
+    > or whatever that users can opt into for better ux.. but the
+    > foundation is explicit, verbose fqdn all the things..
+    >
+    > the func may only have one ret val... but... i think we need
+    > a new kind of define...
+    > don't shim something into define.. make a new kind who allows
+    > N-ary exprs..."
+
+    > "get a new scratch for this... we'll entertian adding this as
+    > a post 109 closure thing...
+    >
+    > no new primitives in core until the mass refactor is done"
+
+    User confirmed the direction with an Erlang resonance:
+
+    > "this form.. it feels very erlang?... i like this"
+
+  outcome: |
+    Arc opened as a design ASK. Captures the design now so the work
+    is sketched and ready when arc 109 closes; no implementation
+    work begins until then.
+
+    LOCKED:
+    - Name: wat-define-nary (working name; gaze-approved
+      "define-nary" — terse, precise, doesn't collide with type
+      polymorphism; debatable later)
+    - Substrate-tier: this is wat-rs proper work, not a crate; new
+      :wat::core::define-nary form
+    - Separate form, NOT extending :wat::core::define (per user
+      direction: "don't shim something into define")
+    - Single return type at the head of the form; all arity bodies
+      checked against it (per user direction: "the func may only
+      have one ret val")
+    - POST-109: no implementation until the mass refactor closes
+      (per user direction: "no new primitives in core until the
+      mass refactor is done")
+    - Verbose-by-design: the form uses fully explicit FQDN syntax
+      per the wat-rs verbosity principle (shortnames are opt-in
+      via wat-common-shortnames or similar layer)
+
+    THE ERLANG RESONANCE (user-recognized):
+
+    Erlang's multi-clause function syntax is the closest familiar
+    pattern — multiple clauses with the same name, each with its
+    own argument pattern (and optional guard), runtime picks the
+    matching clause. Erlang dispatches on (arity, argument
+    patterns, guards); Clojure's N-ary defn dispatches on (arity)
+    only.
+
+    The DESIGN SPACE this opens:
+
+    - Arity-only dispatch (Clojure-style; the minimum)
+    - Pattern-clause dispatch (Erlang-style; arity + literal
+      patterns + variable patterns)
+    - Guard expressions (Erlang-style; :when clauses on each arity
+      body)
+    - Full structural matching (any wat match-pattern as the arg
+      pattern; the upper bound)
+
+    The DESIGN.md surfaces both bounds — minimum (arity-only) and
+    upper (Erlang-full). Implementation slicing decides what
+    fraction to ship; user signals the cut at post-109 time.
+
+    Slice plan: conservative; post-109; gated.
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - same shape as 003-016 (README/INDEX/DESIGN/SLICE-PLAN)
+  - capture user's verbatim direction at decision points
+  - inherit conventions from prior arcs (four questions,
+    failure engineering, dependency doctrine)
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-03
+    role: orientation
+    summary: |
+      Top-level pointer. What wat-define-nary is (separate form
+      for N-ary dispatch), the post-109 gate, the verbose-by-design
+      principle, the layering, the Erlang resonance noted, what
+      this arc is NOT.
+
+  - file: INDEX.yaml
+    captured: 2026-05-03
+    role: catalog
+    summary: This file. Beat-by-beat capture; post-109 gate; status.
+
+  - file: DESIGN.md
+    captured: 2026-05-03
+    role: architecture
+    summary: |
+      Architecture in detail: form syntax, dispatch semantics, type
+      system implications, the convention-vs-primitive analysis,
+      per-four-questions analysis. Surfaces BOTH the Clojure-style
+      arity-only minimum AND the Erlang-style pattern+guards upper
+      bound. Implementation cut to be decided post-109.
+
+  - file: SLICE-PLAN.md
+    captured: 2026-05-03
+    role: shipping plan
+    summary: |
+      Conservative post-109 slices. Pre-implementation slice = arc
+      109 closure. Implementation slices follow only after substrate
+      stabilizes.
+
+# ─── State ───
+status: open (design only; POST-109 gate)
+# Bar to graduate to a real wat-rs arc:
+#   1. Arc 109 (the wat-rs mass refactor) has closed; substrate
+#      stable; no in-flight churn that would conflict with new
+#      primitives
+#   2. User signals "let's start"
+#   3. Concrete use case in user code that's painful enough today
+#      to justify the substrate addition. The kwargs work
+#      (arc 008) does NOT create that pressure — kwargs dispatch
+#      on KEYS, not arity; merge-many is expressible today via
+#      foldl over Vec arg.
+
+# Note: this arc is SUBSTRATE-TIER (a new wat-core form). NOT
+# foundation/application-tier crate work. The slice plan reflects
+# this — slices are wat-rs work, not crate work.
+
+# Discipline: per user direction "no new primitives in core until
+# the mass refactor is done", this arc is design-only until 109
+# closes. The arc exists to capture the design thread; implementation
+# is gated.

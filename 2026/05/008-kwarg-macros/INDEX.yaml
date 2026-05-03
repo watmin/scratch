@@ -576,3 +576,54 @@ captured-beats:
         See "MERGE — what it actually is" section above for the
         sketch. (User's question 2026-05-03: "is this just a
         foldl expr?... " — yes, exactly.)
+
+  - date: 2026-05-03
+    topic: closure — N-ary discussion extracted to arc 017
+    triggered-by: |
+      The merge-many sketch surfaced a broader question about
+      whether wat should support Clojure-style N-ary defn. After
+      exploration of three options and recognition of wat's
+      paren-only syntax (no `[...]` literal), user direction:
+
+      > "don't shim something into define.. make a new kind who
+      > allows N-ary exprs..."
+
+      > "get a new scratch for this... we'll entertian adding this
+      > as a post 109 closure thing... no new primitives in core
+      > until the mass refactor is done"
+
+      > "this form.. it feels very erlang?... i like this"
+
+    captured: |
+      Extracted to arc 017 (wat-define-nary). Closes the loop on
+      the N-ary discussion that surfaced during arc 008's
+      merge-many sketch.
+
+      KEY DECISIONS preserved in arc 017:
+      - Separate `:wat::core::define-nary` form (NOT shimming
+        into `:wat::core::define`)
+      - Single return type at the head of the form; all arities
+        share it
+      - Substrate-tier work; post-109 gated ("no new primitives
+        in core until the mass refactor is done")
+      - Verbose-by-design (the new form uses fully explicit FQDN
+        syntax; shortname/UX layer is opt-in via
+        wat-common-shortnames or similar)
+      - Erlang resonance noted: design captures both
+        Clojure-arity-only LOWER BOUND and Erlang-pattern+guards
+        UPPER BOUND; implementation cut decided at post-109 time
+
+      WHY THIS DOESN'T BLOCK ARC 008:
+
+      kwargs DOES NOT need N-ary. kwargs dispatch on KEYS, not
+      arity. The merge-many example was illustrating the foldl
+      shape (substrate gap discussion), not driving a kwargs
+      requirement.
+
+      arc 008 ships with hash-map composability via repeated
+      assoc (and arc 109's eventual stdlib merge helper). N-ary
+      defn is a separate substrate ASK that lives in arc 017.
+
+    cross-references-added:
+      - arc 017 (wat-define-nary) — the design home for the
+        N-ary discussion; post-109 gated
