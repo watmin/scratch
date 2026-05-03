@@ -53,6 +53,61 @@ arc:
     Slice plan not yet sized; design firms up via chat
     iteration.
 
+captured-beats:
+  - date: 2026-05-03
+    topic: transport — UDS as first-class alongside TCP
+    triggered-by: |
+      User direction:
+
+      > "when we go to implement rack ..... it can be done on a
+      > unix domain socket?... right?.. http is a layer 7 thing..
+      > unix domains satisfy something like a layer 3+4 together?...
+      >
+      > the service shouldn't care that its using domain sockets
+      > instead of inet sockets?..."
+
+      Followed by:
+
+      > "interesting.. did we just eliminate a layer?... do we
+      > need a localhost http still?.. (i think we do.. but worth
+      > confirming... not all things natively integ with domain
+      > sockets.. but /anything/ can basically curl loopback?...)"
+
+      And after confirming the bidirectional-on-one-fd question:
+
+      > "sweet - let's get whatever docs updated if we need - i
+      > like this direction.. the dual bind for serving is very
+      > nice"
+
+    captured: |
+      LOCKED:
+      - Listener is configuration; handler is invariant. Same
+        wat handler serves over TCP or UDS without code change.
+      - Production pattern: dual-bind — UDS for sidecar→app
+        (perf + security); TCP loopback for compat (probes,
+        tooling). Deliberately NOT 0.0.0.0 — sidecar handles
+        cross-pod.
+      - For the sidecar→app data path, L3 (IP) and L4 (TCP)
+        are eliminated; kernel does in-process buffer copy via
+        socket buffers. The layer is *eliminated for that
+        traffic*, not *erased from the system* — TCP loopback
+        remains available; cross-pod still rides TCP+mTLS.
+      - Honest call-out (per four questions): not triple-honest
+        because handlers can introspect req.remote_addr or
+        sidecar-added headers (x-forwarded-*, SPIFFE id). The
+        signature can't tell the transport; the request value
+        can carry transport-derived metadata. That's the right
+        shape — pure invariance would prevent useful
+        application-layer trust decisions.
+
+    docs-updated:
+      - DESIGN.md: new "Transport — listener as configuration"
+        section; updated deployment diagram to show UDS+TCP
+        loopback explicitly; updated "What's NOT in scope"
+        note on TLS termination
+      - README.md: added transport-is-configuration paragraph
+        to the architecture-in-one-paragraph section
+
 conventions:
   - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
   - same shape as 003-008 (README/INDEX/DESIGN/SLICE-PLAN)

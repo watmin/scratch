@@ -53,6 +53,15 @@ handler signature: Rust gives the wat handler a typed Request;
 the wat handler returns a typed Response (or HandlerError); the
 shim serializes it back out as HTTP.
 
+**Transport is configuration, not contract.** The same handler
+serves over TCP or Unix domain sockets — listener choice is a
+deployment-time decision, invisible at the handler signature.
+The common production pattern is dual-bind: UDS for trusted
+sidecar→app traffic (zero TCP/IP stack overhead; filesystem
+permissions as access control); TCP loopback for compatibility
+(kubelet probes; Prometheus; tooling). See `DESIGN.md` →
+*Transport — listener as configuration*.
+
 ## Layering
 
 ```

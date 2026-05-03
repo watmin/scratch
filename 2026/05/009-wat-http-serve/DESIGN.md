@@ -268,36 +268,150 @@ This is the realization of WAT-NETWORK.md's "in-network mode
 vs out-of-network mode" — same handler; different protocol
 layer; client-driven.
 
+## Transport — listener as configuration
+
+The handler signature is invariant under transport choice. The
+listener is runtime configuration. This is the property that
+makes wat-http-serve genuinely deployment-agnostic.
+
+The Rust shim (Layer 2) accepts any tokio listener that
+produces streams implementing `AsyncRead + AsyncWrite + Unpin`.
+Both transport options are first-class:
+
+- **`tokio::net::TcpListener`** — INET sockets (cross-host;
+  requires port + interface)
+- **`tokio::net::UnixListener`** — UDS sockets (host-local;
+  requires filesystem path + permissions)
+
+Same hyper machinery; same wat handler invocation; same
+Request/Response types. The transport vanishes at the handler
+boundary.
+
+### Configuration shape
+
+```scheme
+(:wat::http::serve::serve
+  :handler :my-app
+  :listeners (:wat::core::vec :Listener
+    (:Listener/uds :path "/var/run/wat-http-serve.sock"
+                   :perms 0o600)
+    (:Listener/tcp :addr "127.0.0.1:8080")))
+```
+
+A wat-http-serve deployment binds whatever listeners its
+environment requires. The handler runs once, ignorant of which
+listener delivered each request.
+
+### Why dual-bind is the common production pattern
+
+In a service-mesh pod, the typical bindings are:
+
+- **UDS** for sidecar→app traffic: zero TCP/IP stack overhead;
+  filesystem permissions as access control; no port to scan
+- **localhost TCP (127.0.0.1)** for compatibility: kubelet
+  liveness/readiness probes; Prometheus scrapers; quick `curl`
+  from inside the pod for debugging; anything that doesn't speak
+  UDS natively
+
+Notably absent: `0.0.0.0` TCP. Cross-pod traffic terminates at
+the istio sidecar, NOT at the wat-http-serve container. The
+app should not be reachable from outside the pod directly —
+absence of an external listener is itself a defense.
+
+### What this property buys
+
+- **Performance:** UDS for sidecar→app skips L3 (IP) and L4
+  (TCP) entirely. The kernel just copies bytes between two
+  user processes via socket buffers. No TCP handshake; no IP
+  routing; no checksum.
+- **Security:** UDS-only listener means an attacker who lands
+  inside the pod cannot reach the app via TCP — there's no
+  TCP listener at all. Combined with `chmod 600` on the
+  socket file and matching uid:gid, the socket is
+  kernel-access-controlled.
+- **Compatibility:** localhost TCP keeps every TCP-only client
+  working without code changes. Dual-bind lets trusted callers
+  use the fast path while leaving the universal path open for
+  tools that don't speak UDS.
+
+### Per the four questions on transport flexibility
+
+- **Obvious?** ✅ — `:listeners` is a list; bind what you need
+- **Simple?** ✅ — one handler; many transports; nothing
+  special-cased per transport
+- **Honest?** ✅✅ — handler signature structurally cannot
+  include transport; the abstraction is at the right layer;
+  the transport choice is real and visible at the deployment
+  surface
+- **Good UX?** ✅ — pod operators choose listeners per
+  environment without touching application code
+
+Not triple-honest because handlers can introspect
+`req.remote_addr` or sidecar-added headers (`x-forwarded-*`,
+SPIFFE id) for application-layer trust decisions. The
+*signature* can't tell; the request *value* can carry
+transport-derived metadata. That's the right shape — pure
+invariance would prevent useful decisions like "trust this
+request because the SPIFFE-verified sidecar attested it."
+
+### A layer was eliminated, not erased
+
+For the sidecar→app traffic path, L3 (IP) and L4 (TCP)
+genuinely vanish from the data path. The kernel does in-process
+buffer copy; no network stack. **The layer is eliminated for
+that traffic.**
+
+But it isn't *erased from the system* — TCP loopback remains
+available for compatibility, and cross-pod traffic still rides
+TCP+mTLS to the sidecar. The honest framing is: the layer
+became *optional per listener*. The substrate didn't lose a
+capability; the deployment gained a choice.
+
 ## Connection to wat-network deployment
 
-The wat-network deployment story (per WAT-NETWORK.md) is:
+The wat-network deployment story (per WAT-NETWORK.md), with
+transport choices made explicit:
 
 ```
-┌──────────────────────────────────────────────────┐
-│ k8s pod                                          │
-│  ┌────────────────────┐  ┌──────────────────┐    │
-│  │ istio sidecar       │  │ wat-http-serve   │    │
-│  │ - mTLS termination  │  │   container      │    │
-│  │ - SPIFFE identity   │  │ - HTTP listener  │    │
-│  │ - L4/L7 authz       ├──┤   (plain HTTP    │    │
-│  └────────────────────┘  │   from sidecar)  │    │
-│                          │ - Signed payload │    │
-│                          │   verification   │    │
-│                          │ - Application    │    │
-│                          │   handlers       │    │
-│                          └──────────────────┘    │
-└──────────────────────────────────────────────────┘
+        cross-pod traffic
+            (TCP+mTLS)
+                │
+                ▼
+┌───────────────────────────────────────────────────────┐
+│ k8s pod                                               │
+│                                                       │
+│   ┌─────────────────────┐    ┌───────────────────┐    │
+│   │ istio sidecar        │    │ wat-http-serve   │    │
+│   │ - mTLS termination   │UDS │   container       │   │
+│   │ - SPIFFE identity    ├────┤ - UDS listener    │   │
+│   │ - L4/L7 authz        │    │   (from sidecar)  │   │
+│   └─────────────────────┘    │ - TCP localhost   │    │
+│                              │   listener        │    │
+│                              │   (probes/tools)  │    │
+│           ┌──── kubelet ────►│                   │    │
+│           │   probes (TCP)   │ - Signed payload  │    │
+│           │                  │   verification    │    │
+│           │                  │ - Handlers        │    │
+│                              └───────────────────┘    │
+└───────────────────────────────────────────────────────┘
 ```
 
-The istio sidecar handles all network-layer crypto + mTLS +
-SPIFFE identity. The wat-http-serve container receives plain
-HTTP locally with verified identity headers from the sidecar.
-The wat handler does its OWN application-layer crypto (signed
-payload verification). Two layers of cryptographic
-verification compose; spoofing requires breaking both.
+**Layer composition:**
+- Network layer: istio sidecar handles mTLS, SPIFFE identity,
+  L4/L7 authz for cross-pod traffic
+- Transport layer: UDS for trusted sidecar→app; TCP loopback
+  for tooling/probes
+- Application layer: wat handler does its OWN signed payload
+  verification on the request body
+
+Two layers of cryptographic verification compose; spoofing
+requires breaking both. The layered approach is honest:
+network-layer concerns stay in the sidecar; transport choice
+stays in the listener config; application-layer security stays
+in the handler.
 
 This is **standard k8s + istio service deployment with wat as
-the application.**
+the application** — no exotic infrastructure required.
 
 ## Open architectural questions
 
@@ -331,7 +445,8 @@ C. **Health check / metrics endpoints.** Standard practice
   is server-side only.
 - **TLS / mTLS termination** — istio sidecar (or a similar
   service mesh) handles it. The wat-http-serve container
-  receives plain HTTP locally with verified identity headers.
+  receives plain HTTP locally (over UDS or TCP loopback) with
+  verified identity headers.
 - **WebSocket / SSE / streaming protocols** — request/response
   only for v1.
 - **Authentication / authorization** — application-layer
