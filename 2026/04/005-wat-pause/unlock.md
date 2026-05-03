@@ -1,6 +1,6 @@
 # The unlock — what arcs 097–104 made true
 
-Pry needs three things from its host:
+Pause needs three things from its host:
 
 1. **A read-eval-print loop primitive** — read source, parse, evaluate,
    render result, loop.
@@ -29,18 +29,18 @@ inspectable, compositionally-built artifact.
 **Arc 100 — wat-cli public API** — `wat_cli::run(&[Battery])`
 exposed. Downstream consumers (and us) can build alternative
 front-ends that share wat-cli's machinery — argv parse, freeze
-pipeline, signal handlers, exit codes. **`wat-pry` is one such
+pipeline, signal handlers, exit codes. **`wat-pause` is one such
 alternative front-end.**
 
 **Arc 101 — kill `wat test`** — single-purpose CLI. The cli is now
 "parse argv, run one entry program." Adding a second mode
-(`--pry`) is symmetric and doesn't fight a third (`test`). The
+(`--pause`) is symmetric and doesn't fight a third (`test`). The
 clarity of the single shape makes the second shape honest.
 
 **Arc 102 — `:wat::eval-ast!` polymorphic return** — schema flipped
 from `Result<:HolonAST, EvalError>` to `Result<:T, EvalError>`.
 Caller annotates the type they expect. Same trust-the-caller
-discipline as `:wat::edn::read`. **Without this, every pry result
+discipline as `:wat::edn::read`. **Without this, every pause result
 would have to be unwrapped from a HolonAST envelope before
 display; with it, the result IS whatever the expression produced.**
 
@@ -57,19 +57,19 @@ load-bearing arc. Three things landed:
 **Arc 104 (open) — wat-cli always forks the entry program** — when
 this lands, **the cli is no longer a co-resident with user code**.
 The user's program runs in its own COW-isolated address space.
-This matters for `(:wat::pry::break)` specifically — when the
+This matters for `(:wat::pause::break)` specifically — when the
 break fires inside the user's program, the program's own stdin/
 stdout/stderr are the channel back to the user's terminal.
 Containment is structural, not aspirational.
 
 ## What this means concretely
 
-Pry is no longer a substrate addition. It's a **second shape of a
+Pause is no longer a substrate addition. It's a **second shape of a
 thing that already exists** — a wat program the cli runs. The
-substrate just needs to ship the loop (`:wat::pry::serve`), the
-break primitive (`:wat::pry::break-with-stdio`), and a few
+substrate just needs to ship the loop (`:wat::pause::serve`), the
+break primitive (`:wat::pause::break-with-stdio`), and a few
 introspection primitives (`ls`, `show`, `completions`). All of
-these are tiny — and gated behind `--pry`, so no production
+these are tiny — and gated behind `--pause`, so no production
 build accidentally hosts an interactive interpreter.
 
 The pieces that would have been hard to build five arcs ago land
@@ -96,14 +96,14 @@ trivially today:
 
 ## The honest thing about freeze
 
-The substrate's freeze invariant is what makes pry's interrogation
+The substrate's freeze invariant is what makes pause's interrogation
 static. You're looking at exactly the program that's running. When
 you `:continue`, you continue into exactly the program you
 inspected. No drift between inspection and resumption.
 
 Ruby's pry fights this — methods can be redefined out from under
 inspection, constants reassigned mid-session, threads mutate locals
-asynchronously. Wat's pry inherits the substrate's stability.
+asynchronously. Wat's pause inherits the substrate's stability.
 
 The user's framing: **rust being frozen is a blessing, not a
 curse.** What gives up is "redefine a method live" (which the
@@ -112,26 +112,26 @@ back is "the inspection is honest" — the program you're looking at
 is the program you're going to run.
 
 The trade is the right one. The book has been arguing for the
-hologram model for chapters; pry is what falls out when you ask
+hologram model for chapters; pause is what falls out when you ask
 "what does interrogation look like INSIDE the hologram?"
 
 The answer: the substrate already had everything. Tonight named it.
 
 ## The gating constraint
 
-Pry symbols are not free. They expose program internals
+Pause symbols are not free. They expose program internals
 (Environment capture, source listing, frame stack walking) that
 production binaries should not host. The user's discipline:
 
-> "all pry forms are illegal if --pry isn't passed... we ship with
-> pry but the user must enable it... if we see (:wat::pry::break)
-> and we're not in pry mode - panic"
+> "all pause forms are illegal if --pause isn't passed... we ship with
+> pause but the user must enable it... if we see (:wat::pause::break)
+> and we're not in pause mode - panic"
 
-The substrate ships the pry battery as part of `wat-cli`'s bundled
-extensions, but **the cli only registers it when `--pry` is set**.
-Without the flag, the `:wat::pry::*` namespace doesn't exist;
-freeze fails with `UnknownFunction(":wat::pry::break")` if any
-pry form is in the source — at the earliest possible point. No
+The substrate ships the pause battery as part of `wat-cli`'s bundled
+extensions, but **the cli only registers it when `--pause` is set**.
+Without the flag, the `:wat::pause::*` namespace doesn't exist;
+freeze fails with `UnknownFunction(":wat::pause::break")` if any
+pause form is in the source — at the earliest possible point. No
 runtime-conditional latent activation; no production build that
 silently hosts the interpreter; the gate is structural at freeze.
 

@@ -1,0 +1,429 @@
+# Scratch arc — wat-pause — interactive pause for the wat substrate
+#
+# After reading wat-rs arcs 097-104 in sequence (especially 103a
+# spawn-program + HOLOGRAM.md and 104 always-fork), the user
+# recognized: the substrate has accumulated everything needed for
+# a pause-shaped REPL without anyone naming it.
+#
+# This scratch captures the structural shape — what's locked, what's
+# open, the slice ordering, and the substrate primitives that need
+# to ship — so the wat-rs arc can be drafted cleanly when the user
+# is ready.
+
+arc:
+  slug: wat-pause
+  date: 2026-04-29
+  triggered-by: |
+    User session opened with "go study the latest wat-rs/ arcs ...
+    we are doing something ... very ... interesting... it will unlock
+    something (maybe already is unlocked..)..." After reading 097
+    forward, the user named what was unlocked:
+
+    > "i think we just unlocked... repl?... the user's compiled wat
+    > has all the symbols... we can run wat --repl to jump into it?...
+    > is this true?... if this is true... can we implement something
+    > like ruby's pry?..."
+
+    > "binding.pry is /the most/ powerful thing i've ever seen in a
+    > program..."
+
+    > "rust being frozen is a blessing, not a curse...."
+
+    Across four user prompts, the design sharpened: bare REPL,
+    `(:wat::pry::break)` as the binding.pry primitive, no `cd`
+    (FQDN navigates via tab completion), `--pry` as the gating flag
+    (pry forms illegal without it), and the word is "pry" not REPL.
+
+    [Historical record: substrate forms were originally named with
+    the `pry` prefix at this point in the conversation. The arc was
+    renamed to `wat-pause` on 2026-05-03 — see captured-beats below.]
+
+  outcome: |
+    Structural shape locked. Five load-bearing decisions:
+      1. The freeze pipeline runs identically in both modes; only
+         the entry-point lookup differs (:user::main vs :wat::pause::main).
+      2. Pause symbols are gated by --pause; freeze rejects pause
+         references without the flag (batteries-only loading).
+      3. (:wat::pause::break) is a substrate primitive that captures
+         Environment + CALL_STACK and runs the pause loop with the
+         captured scope as eval context.
+      4. The pause loop and command dispatchers are wat code in
+         wat/std/pause.wat; only the break primitive + a few
+         introspection accessors are Rust shims.
+      5. wat-cli grows --pause initially; wat-pause as a separate crate
+         ships once the rustyline frontend grows enough features.
+
+    Substrate additions estimated: ~600 lines Rust + ~250 lines wat
+    + ~170 lines wat-cli wiring. Three slices to feature-complete
+    pause experience (~10 days). Two slices deferred (stepping +
+    TCP attach).
+
+    Ready to migrate to a wat-rs arc when the user is ready.
+
+conventions:
+  - filenames: kebab-case .md, descriptive of the topic
+  - capture user's exact words at decision points
+  - distinguish user-original insight from thinking-with extension
+  - the assistant DID NOT touch wat-rs or the lab during this scratch;
+    only the scratch dir itself
+
+# ─── Beat-by-beat capture ───
+notes:
+  - file: README.md
+    captured: 2026-04-29
+    beat: 0 (overview)
+    summary: |
+      Structural sketch + sibling-materials table + the locked
+      decisions. Top-level entry point for future readers walking
+      back into this scratch.
+
+  - file: unlock.md
+    captured: 2026-04-29
+    beat: 1 (the recognition)
+    summary: |
+      Why arcs 097-104 made pause possible. Pre-arc-097 the substrate
+      had eval primitives but no clean way to swap entry-points or
+      run an interactive loop. Arc 099 extracted the cli; arc 100
+      vended the battery-composition API; arc 101 made the cli
+      single-purpose; arc 102 made eval-ast! polymorphic; arc 103
+      shipped spawn-program + the EDN+newline pipe protocol + the
+      HOLOGRAM framing; arc 104 makes the cli always-fork.
+      Together: pause is a wat program the cli runs, not a substrate
+      addition. The freeze invariant is what makes the inspection
+      static — wat's pause is more honest than Ruby's because the
+      program you inspect IS the program you continue into.
+
+  - file: two-modes.md
+    captured: 2026-04-29
+    beat: 2 (the user's correction)
+    follows: unlock.md
+    summary: |
+      User's framing: "if we ship a wat-pry... it ignores the
+      :user::main and runs :wat::pry::main instead.. the user's
+      entrypoint file is still sourced.. all of their forms are
+      loaded but their main isn't evaluated... is that what you
+      were getting at?..." Same freeze pipeline runs in both
+      modes; the only difference is which top-level function gets
+      invoked. Bare (no entry) and entry-loaded modes share the
+      code path; entry source is Option<String>. The user's
+      :user::main is callable from the prompt as just another
+      symbol. The same source file runs both ways.
+
+  - file: gating.md
+    captured: 2026-04-29
+    beat: 3 (the constraint)
+    follows: two-modes.md
+    summary: |
+      User's constraint: "all pry forms are illegal if --pry isn't
+      passed... we ship with pry but the user must enable it...
+      if we see (:wat::pry::break) and we're not in pry mode -
+      panic". Implementation: pause battery registered only when
+      --pause set. Without the flag, the :wat::pause::* namespace
+      doesn't exist; freeze fails with UnknownFunction on any
+      pause reference. Path B (freeze-time rejection) chosen over
+      Path A (runtime panic): earliest possible failure point;
+      production binaries genuinely don't host pause internals.
+      Even unreachable pause calls fail freeze — feature, not bug,
+      because it prevents shipping a binary with latent break
+      points.
+
+  - file: break-primitive.md
+    captured: 2026-04-29
+    beat: 4 (the killer feature)
+    follows: gating.md
+    summary: |
+      (:wat::pause::break) is the binding.pry primitive. Substrate
+      captures the current Environment (Arc clone) + CALL_STACK
+      (existing thread-local from arc 016); runs the pause loop
+      with the captured scope as eval context; resumes on
+      :continue. Wat-honest shape: substrate primitive takes
+      stdio explicitly (break-with-stdio); wat-level macro
+      (:wat::pause::break) expands to the verbose form using
+      lexically-scoped stdin/stdout/stderr names. Only the
+      break primitive needs substrate-level Rust because
+      Environment capture happens INSIDE eval_form. The freeze
+      invariant is what makes resume-after-inspection honest:
+      no thread can mutate functions or constants while the
+      user inspects, so :continue resumes into exactly the
+      program that was inspected.
+
+  - file: command-set.md
+    captured: 2026-04-29
+    beat: 5 (no cd; tab completion)
+    follows: break-primitive.md
+    summary: |
+      User's framing: "i don't know if cd even has meaning in
+      wat.. everything is a fqdn..." Pause's `cd` doesn't translate
+      — wat has no ambient self / current scope. Tab completion
+      is the FQDN-native navigator. Substrate primitive
+      :wat::pause::completions walks the SymbolTable for prefix
+      matches; rustyline frontend calls it on every TAB. Command
+      set splits into bare-mode (:ls / :show / :reload / :exit
+      + tab completion) and break-mode (those plus :continue /
+      :where / :env / :frames / :up / :down / :wtf). Stepping
+      (:next / :step / :finish) is slice 4 via arc 068's
+      eval-step!.
+
+  - file: primitives.md
+    captured: 2026-04-29
+    beat: 6 (the surface)
+    follows: command-set.md
+    summary: |
+      Eight primitives in the :wat::pause::* namespace. Most are
+      thin readers over existing substrate state (SymbolTable,
+      CALL_STACK, panic_hook output). Only break-with-stdio
+      requires substrate-level Rust for Environment capture.
+      The pause loop (serve), the break macro, and the command
+      dispatchers all live in wat/std/pause.wat as wat code —
+      pause is "just a wat program" the cli runs. Total: ~600
+      lines Rust + ~250 lines wat + ~170 lines wat-cli. Compares
+      to Ruby's pry at ~25,000 lines; the substrate's prior
+      arcs did most of the work.
+
+  - file: packaging.md
+    captured: 2026-04-29
+    beat: 7 (shipping shape)
+    follows: primitives.md
+    summary: |
+      Two equivalent shapes: wat-cli with --pause flag (Shape A) vs
+      separate crates/wat-pause/ binary (Shape B). The substrate
+      doesn't change between them; only the wrapper differs.
+      Decision: ship Shape A first (slices 1-2); migrate to
+      Shape B when the rustyline frontend grows enough features
+      to deserve its own crate (around slices 3-4). The pattern
+      composes with arc 100's wat_cli::run(&[Battery]) — custom
+      consumers can build their own pause CLIs by importing the
+      pause battery + their own batteries.
+
+  - file: slice-plan.md
+    captured: 2026-04-29
+    beat: 8 (the build order)
+    follows: packaging.md
+    summary: |
+      Five slices. Slice 1: bare pause mode (--pause flag,
+      :wat::pause::main + :wat::pause::serve, ls/show/exit/reload
+      commands). Slice 2: (:wat::pause::break) + frame walking
+      + last-error. Slice 3: rustyline frontend with completion
+      / history / multi-line / colors. Slice 4 (deferred):
+      stepping via eval-step!. Slice 5 (deferred): TCP attach
+      for remote sessions. First three slices: ~10 days for
+      the full pause experience. Acceptance bars per slice
+      documented.
+
+  - file: open-questions.md
+    captured: 2026-04-29
+    beat: 9 (the unresolved)
+    follows: slice-plan.md
+    summary: |
+      14 open questions categorized: substrate-level (6) — pause::main
+      shipping shape, FrameInfo::env shape, pretty-printing, doc
+      strings, multi-client TCP, threading-vs-pause — UX (5) —
+      continuation triggers, prompt colors, history location,
+      :reload semantics, bare-pause :load — and gating edge cases (3)
+      — conditional pause forms, third-party battery sources, test
+      code registration. Most have leans documented; resolutions
+      surface in their respective slices. None block opening the
+      wat-rs arc.
+
+artifact-layout:
+  arc-root: scratch/2026/04/005-wat-pause/
+  notes: |
+    Beat-by-beat .md files plus INDEX.yaml + README.md
+  total-files: 10    # 9 notes + INDEX.yaml
+  scaffold-status: |
+    No code scaffolds. The substrate primitives, the wat loop,
+    and the wat-cli wiring are all sketched in prose. Slice 1
+    will produce real code in wat-rs; this scratch documents
+    the design that gets built.
+
+# ─── Captured beats (post-original-design) ───
+captured-beats:
+  - date: 2026-05-03
+    topic: rename + split — wat-pry → wat-pause; wat-repl extracted as foundation
+    triggered-by: |
+      User direction (after a sequence of namings; gaze invoked properly):
+
+      > "let's think on what this is.... its a way to pause a program
+      > and interrogate it... my usecase will be doing this via an mcp..
+      > once we build it... but i'm good with 'wat-mcp' being that..
+      > mcp is a generic thing... maybe we just call it repl... but...
+      > i don't like that... it needs a name to stand with pry.. maybe
+      > it just is pry?..."
+
+      The /gaze ward (proper invocation, full SKILL.md embedded as
+      operating frame) reported back:
+
+        - delve mumbles — names a mood (exploration), not the act
+          (suspension + conference)
+        - chamber mumbles — names a place, not an act
+        - pry mumbles (borrowed) — speaks Ruby's voice, not wat's
+        - The user already named the tool in plain English in the
+          brief: "a way to PAUSE a running wat program"
+        - wat-pause speaks; matches fmt/lint/cov/doc family rhythm
+
+      User confirmed:
+
+      > "pause .... yes - that's it... pause provides the repl and
+      > the breakpoint... or... do we need a wat-repl and wat-pause
+      > builds on it?.."
+
+      Following four-questions analysis, the layered shape won. User:
+
+      > "i think we rename and split... break the repl part into its
+      > own and the breakpoint/pry into its own.... ruby's irb doesn't
+      > do what pry does but pry builds upon irb...."
+
+      > "but whatever month item numbers.. they are just a disambiguator..
+      > the next one holds the split.... they are not an impl order..
+      > just a thing to visually separate...."
+
+    captured: |
+      DECIDED:
+      - Rename: arc 2026/04/005-wat-pry → 2026/04/005-wat-pause
+      - All substrate forms: :wat::pry::* → :wat::pause::*
+      - Flag: --pry → --pause
+      - Standard files: wat/std/pry.wat → wat/std/pause.wat
+      - Crate name: wat-pry → wat-pause
+      - SPLIT: a new arc 2026/05/012-wat-repl opens as the FOUNDATION
+        that wat-pause builds on. Same pattern as Ruby (irb is the
+        foundation; pry builds on irb). The wat-repl arc captures the
+        REPL primitives (read-eval-print loop, line editing, history,
+        completion, generic commands like :type / :source / :doc /
+        :reload) that wat-pause uses when it attaches to a captured
+        paused context.
+      - Arc numbers are visual disambiguators, not impl order.
+        wat-repl at 012 (later number) is conceptually the foundation
+        of wat-pause at 005 (earlier number). Honest about discovery
+        order; layering is documented in the per-arc DESIGN.md cross-
+        references.
+
+      PRESERVED (verbatim user quotes throughout):
+      - All historical quotes that used "pry" stay as "pry" in the
+        original quote text (with bracket notes pointing at this
+        captured-beat for the rename direction).
+      - Ruby references (binding.pry, Ruby's pry, ruby's pry) stay
+        as Ruby names (we renamed our thing; Ruby still has theirs).
+
+  - date: 2026-05-03
+    topic: the MCP / Claude-as-measurer vision
+    triggered-by: |
+      User direction:
+
+      > "something to keep in mind... my intended usecase... is claude
+      > code interfacing with wat programs via mcp.. claude becomes the
+      > thing measuring within a pry repl via an mcp.. that's something
+      > no one really appreciates yet.. what that will do... i can see
+      > it..."
+
+    captured: |
+      VISION (preserve exactly; this is the user's recognition of
+      what becomes possible — not a feature spec):
+
+      The intended deployment shape for wat-pause:
+      - A wat program is running on a wat-vm somewhere
+      - The program hits (:wat::pause::break) — execution suspends
+      - wat-mcp (separate arc — see project memory) exposes the
+        paused context as MCP tools to Claude Code (or any
+        MCP-speaking agent)
+      - Claude attaches; sees the captured Environment + CALL_STACK;
+        can inspect values; navigate frames; evaluate expressions;
+        modify state; step / continue / abort
+      - Claude becomes THE LIVE MEASURING AGENT inside the running
+        program — not generating code, not running tests, not RAG-
+        ing over source; ACTIVELY PARTICIPATING in the program's
+        execution as a typed-introspection agent
+
+      What this unlocks (user's framing — "no one really appreciates
+      yet... what that will do"):
+
+      1. Live security analysis. Pause a suspect transaction;
+         Claude inspects state; verifies invariants; decides
+         continue/abort. The live program is the source of truth;
+         Claude is the analyst.
+      2. Live debugging at agent-speed. Claude can iterate on
+         hypotheses about why a program is in a strange state
+         orders of magnitude faster than a human at a keyboard.
+      3. Live policy enforcement. Pause at policy boundaries;
+         Claude evaluates whether the requested action complies;
+         resume or abort based on Claude's judgment, expressed
+         in wat code that Claude evaluates against the live
+         context.
+      4. Live tutoring. A learner runs a wat program; pauses;
+         Claude explains the current state in human terms while
+         the program is *literally still alive* in front of them.
+      5. Live-system testing. Claude attaches to a paused production
+         service; runs hypothetical evaluations against current state;
+         decides if a deployment is safe.
+
+      The substrate primitives that make this honest (already
+      designed, per this arc):
+      - The freeze invariant: Claude inspects what the program
+        IS — no other thread can mutate function definitions out
+        from under the inspection
+      - Type contracts: every value Claude sees has a typed
+        signature; no JSON-shaped uncertainty about structure
+      - Capability bridging: Claude can only do what the captured
+        Environment permits; no escape to the wider OS
+      - --pause gating: production binaries don't ship with
+        pause hosting unless explicitly enabled
+
+      Cross-references:
+      - wat-mcp arc — exposes the pause context as MCP tools to Claude
+      - DEPENDENCY-DOCTRINE.md — the deliberate coupling that lets
+        Claude attach honestly via MCP
+      - WAT-NETWORK.md — the trusted-identity layer makes
+        cross-machine pause sessions cryptographically auditable
+
+      This vision is the WHY behind wat-pause's strict design
+      (gating, freeze invariant, typed everything, fork-and-proxy
+      isolation). The pause sessions are not just for human
+      developers; they're the substrate for agentic introspection
+      at production scale. This is what no one yet appreciates.
+
+    docs-updated:
+      - All scratch arc files renamed pry → pause (preserving
+        verbatim user quotes that used pry historically)
+      - INDEX.yaml: this captured-beat documenting the rename + split
+        + MCP vision
+      - New arc 2026/05/012-wat-repl/ opened as the foundation
+      - scratch root README.md updated to register both renames
+
+# ─── State ───
+status: open
+# Five load-bearing decisions banked across this scratch:
+#   1. Two modes, one freeze pipeline (entry-point swap only)  (beat 2)
+#   2. --pause as registration gate (freeze fails without flag)   (beat 3)
+#   3. Break primitive captures Environment + CALL_STACK         (beat 4)
+#   4. No cd; FQDN + tab completion as navigator                  (beat 5)
+#   5. Pause loop is wat code; only break primitive + accessors    (beat 6)
+#      need substrate Rust
+#
+# Six secondary decisions:
+#   6. Wat-shipped :wat::pause::main (beat 6 sub-question)
+#   7. wat-cli --pause first; wat-pause crate split later (beat 7)
+#   8. Shape A→B migration on slice 3-4 boundary (beat 7)
+#   9. Slice ordering: bare → break → rustyline → stepping → TCP (beat 8)
+#  10. Strict gating (Path B over Path A) (beat 3)
+#  11. FrameInfo gains env field for :up / :down (beat 4 sub-fog)
+#
+# Ready to migrate to a wat-rs arc. The arc would open with the
+# slice-plan from slice-plan.md as its BACKLOG, the substrate
+# primitive list from primitives.md as its slice 1 + slice 2
+# scope, and the gating mechanism from gating.md as its load-
+# bearing constraint.
+#
+# First-slice acceptance bar (lifted from slice-plan.md):
+#   wat --pause opens a bare session against batteries.
+#   :ls :wat::std::math lists the math primitives.
+#   (:wat::std::math::sqrt 2.0) prints 1.414...
+#   :exit closes cleanly.
+#   wat (no --pause flag) on a source file containing
+#     (:wat::pause::break) fails freeze with
+#     UnknownFunction(":wat::pause::break").
+#
+# Likely next-conversation triggers:
+#   - User asks to open the arc.
+#   - User identifies a debugging session that would benefit from
+#     pause; we ship slice 1 to give them the surface.
+#   - A separate conversation surfaces the rustyline integration
+#     (slice 3) ahead of slice 1 because of frontend constraints.

@@ -1,0 +1,116 @@
+# Scratch arc — wat-repl: interactive evaluator (foundation under wat-pause)
+#
+# Generic read-eval-print loop for the wat substrate. Built on
+# rustyline. Pairs with wat-pause (arc 005) — same Ruby pattern as
+# irb under pry.
+
+arc:
+  slug: wat-repl
+  date: 2026-05-03
+  triggered-by: |
+    User direction during the wat-pry → wat-pause rename + split
+    discussion:
+
+    > "i think we rename and split... break the repl part into its
+    > own and the breakpoint/pry into its own.... ruby's irb doesn't
+    > do what pry does but pry builds upon irb...."
+
+    > "but whatever month item numbers.. they are just a disambiguator..
+    > the next one holds the split.... they are not an impl order..
+    > just a thing to visually separate...."
+
+    The split surfaced when the assistant proposed `wat-pause` as the
+    rename for `wat-pry`. User asked: "pause provides the repl AND the
+    breakpoint... or... do we need a wat-repl and wat-pause builds on
+    it?" Four-questions analysis showed the layered shape wins
+    cleanly:
+
+    - Obvious: a REPL is a REPL; should stand alone (every language
+      has freestanding `irb` / `python` / `node`)
+    - Simple: each crate owns one concern (REPL vs suspension)
+    - Honest: REPL doesn't need a paused program; pause needs a REPL
+    - Good UX: two entry points for two real use cases
+
+  outcome: |
+    Arc opened. Same crate pattern as the rest of the toolkit
+    (arc-013 self-contained crate; README/INDEX/DESIGN/SLICE-PLAN).
+
+    LOCKED:
+    - Name: wat-repl (universal noun for this tool category;
+      pairs with wat-pause; matches fmt/lint/cov/doc/pause family
+      rhythm; no collision)
+    - Layering: rustyline (Layer 2 line-editing) + wat-vm eval
+      dispatch (Layer 3); generic REPL commands (Layer 4 in wat)
+    - Architecture: one entry point — `(:wat::repl::start :context
+      ctx)` — embedded; CLI `wat repl` for freestanding use; shared
+      with wat-pause's session attachment
+    - Generic REPL commands: :help, :type, :source, :doc, :reload,
+      :quit. Pause adds its own commands (:where, :up, :down,
+      :continue, :step) when its session runs on top
+    - Dependency: rustyline (Rust ecosystem standard for line
+      editing; per DEPENDENCY-DOCTRINE — couple to canonical;
+      same family as ripgrep, sccache use)
+
+    Foundation tier in concept, even though arc number is later
+    than wat-pause. Arc numbers are visual disambiguators, not impl
+    order; layering is documented in DESIGN.md cross-references.
+
+    Slice plan not yet sized; design firms up via chat iteration.
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - same shape as recent arcs (README/INDEX/DESIGN/SLICE-PLAN)
+  - capture user's verbatim direction at decision points
+  - inherit conventions from prior arcs (four questions,
+    arc-013 crate pattern, dependency doctrine)
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-03
+    role: orientation
+    summary: |
+      Top-level pointer. What wat-repl is (interactive evaluator;
+      foundation under wat-pause), the four-layer architecture,
+      where it lives (wat-rs/crates/wat-repl/), the irb/pry
+      analogy, reading order, cross-references to wat-pause
+      (consumer) + wat-mcp (exposer).
+
+  - file: INDEX.yaml
+    captured: 2026-05-03
+    role: catalog
+    summary: This file. Beat-by-beat capture and arc status.
+
+  - file: DESIGN.md
+    captured: 2026-05-03
+    role: architecture
+    summary: |
+      Architecture in detail: rustyline-based Rust shim;
+      wat-side REPL loop with read/eval/print phases; context
+      binding (the embedded form takes a context parameter);
+      special commands; integration with wat-pause's pause
+      session; CLI vs embedded modes; error model.
+
+  - file: SLICE-PLAN.md
+    captured: 2026-05-03
+    role: shipping plan
+    summary: |
+      Sketch slices: bare REPL with rustyline; embeddable form
+      with context binding; special commands set; wat-pause
+      integration; production hardening.
+
+# ─── State ───
+status: open (sketch; design firms up via chat)
+# Bar to graduate to a real wat-rs arc:
+#   1. wat-pause (arc 005) has shipped slice 1 (so the integration
+#      pattern between pause's context capture and repl's
+#      attachment is firm) — OR
+#   2. wat-repl ships standalone first for tutorial/editor use
+#      cases, with wat-pause adapting to use it
+#   3. User signals "let's start"
+
+# Note: this arc is FOUNDATION-TIER conceptually, even though the
+# arc number is later than wat-pause (005). The discovery order
+# was: wat-pause designed → rename + split surfaced wat-repl as
+# the foundation. wat-repl's arc number reflects when it was
+# OPENED, not its layering position.

@@ -111,7 +111,7 @@ thread, move it into a new arc directory and seed
 2026/04/002-directed-evaluation/
 2026/04/003-edn-typed-wire/
 2026/04/004-inverse-hologram/
-2026/04/005-wat-pry/
+2026/04/005-wat-pause/                           renamed from wat-pry 2026-05-03; breakpoint + interrogate tool (Ruby's pry-equivalent in wat's voice)
 2026/04/006-wat-mcp/
 2026/04/007-dependency-resolution/
 2026/04/008-reactor-for-program-supertype/
@@ -131,6 +131,7 @@ thread, move it into a new arc directory and seed
 2026/05/009-wat-http-server/                      app tier — Rack analog; tokio+hyper shim + minimal handler interface
 2026/05/010-wat-http-router/                      app tier — Sinatra analog; routing DSL on top of arc 009
 2026/05/011-wat-http-client/                     app tier — HTTP client (the other end of arc 009); reqwest-based
+2026/05/012-wat-repl/                            foundation tier — interactive evaluator; foundation under wat-pause (Ruby's irb-equivalent)
 ```
 
 The `2026/05/003-006` arcs together form the **foundation
