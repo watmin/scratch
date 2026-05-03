@@ -286,3 +286,192 @@ captured-beats:
       - Confirm structural-Honest property (kwargs surface can't
         bypass positional type checks)
       - DESIGN.md restructure to surface two-form distinction
+
+  - date: 2026-05-03
+    topic: three calling conventions; one validation engine; hash-map composability locked
+    triggered-by: |
+      Continuation of the two-form refinement above. User direction:
+
+      > "it must be - but we also need to allow the users to compose
+      > their ordering.. kwargs must not be strongly coupled to the
+      > positional defs.. being able to compose the kwargs as a
+      > hash-map and then use the hash-map to invoke the func is the
+      > UX we want to chase... think on how clojure does kwargs...
+      > i want something adjacent to this"
+
+      [User wrote "map" in the original message — corrected to
+      "hash-map" per the documentation discipline they articulated
+      in the same thread:
+
+      > "in our docs.. we are dilligent about hash-map != map .. don't
+      > name error error.. i used it loosely as well..
+      > kwargs => hash-map of symbol->something
+      > map => apply function to list of things"
+
+      Quoted with the corrected term to match the discipline; the
+      user flagged that they too used "map" loosely in the moment.]
+
+    captured: |
+      THREE CALLING CONVENTIONS — one validation engine
+
+      Lock-in on the structural-Honest property: ✅✅✅ Honest is
+      REQUIRED, not optional. The kwargs surface MUST type-enforce
+      structurally identically to the positional. The mechanism:
+
+      All calling conventions converge on the SAME underlying
+      validated function. Surfaces are arrangement-only.
+
+      Convention 1 — POSITIONAL (fast path; order-dependent):
+
+        (:transfer-funds-positional account-a account-b 500 "lunch")
+
+      Convention 2 — INLINE KWARGS (named at the call site):
+
+        (:transfer-funds
+          :from   account-a
+          :to     account-b
+          :amount 500
+          :memo   "lunch")
+
+      Convention 3 — HASH-MAP KWARGS (the composability target):
+
+        (:wat::core::let
+          ((args (:wat::core::hash-map
+                   :from   account-a
+                   :to     account-b
+                   :amount 500)))
+          (:transfer-funds args))
+
+      All three converge on ONE type-check engine. The kwargs and
+      hash-map surfaces unpack their inputs and call the same
+      validated function. You CANNOT construct a call via
+      Convention 2 or 3 that bypasses any check Convention 1
+      enforces — they all flow through the same gate.
+
+      THIS IS WHAT EARNS ✅✅✅ HONEST STRUCTURALLY.
+
+      THE HASH-MAP COMPOSABILITY WIN:
+
+      Convention 3 unlocks the patterns Clojure made canonical:
+
+        ;; Build args from multiple sources via hash-map merging
+        (:wat::core::let*
+          ((defaults  (:wat::core::hash-map :memo "default-memo"))
+           (required  (:wat::core::hash-map
+                        :from account-a :to account-b))
+           (overrides (:wat::core::hash-map :amount 500))
+           (args      (:wat::core::merge defaults required overrides)))
+          (:transfer-funds args))
+
+        ;; Modify args in pipeline
+        (:wat::core::let*
+          ((base-args  (:get-default-args))
+           (with-from  (:wat::core::assoc base-args :from new-account))
+           (final      (:wat::core::assoc with-from :amount 200)))
+          (:transfer-funds final))
+
+        ;; Higher-order: function that prepares args
+        (:wat::core::define
+          (:prepare-transfer (user :User) (amount :i64) -> :HashMap)
+          (:wat::core::hash-map
+            :from   (:User/account user)
+            :to     :treasury
+            :amount amount))
+        (:transfer-funds (:prepare-transfer current-user 500))
+
+        ;; Conditional construction
+        (:wat::core::let*
+          ((args (:wat::core::hash-map :from a :to b :amount n))
+           (args (:wat::core::if include-memo?
+                   (:wat::core::assoc args :memo "scheduled")
+                   args)))
+          (:transfer-funds args))
+
+      The hash-map is just data. Data composes. Data merges. Data
+      flows through pipelines. Once the kwargs are a hash-map,
+      the call site is a first-class object that can be
+      manipulated like anything else.
+
+      THE "NOT STRONGLY COUPLED TO POSITIONAL DEFS" PRINCIPLE:
+
+      The hash-map convention is FIRST-CLASS, not derived. The
+      kwargs aren't "positional args that happen to be named";
+      they're a calling convention with their own composability
+      properties. The positional form is one of three peers,
+      not the primary shape.
+
+      Implications for design:
+      - Kwarg name doesn't need to match positional argument name
+        — they happen to align by default; renaming allowed at
+        definition time if the kwargs surface reads better
+      - Defaults belong in the kwargs definition (per-kwarg
+        :default <value>); positional missing-arg handling is
+        separate
+      - Optional kwargs (:optional :string) work without forcing
+        positional form to track Option types
+      - Hash-map can carry EXTRA keys the function ignores OR
+        rejects — controllable via :strict? / :open? flag at
+        definition time
+
+      CLOJURE PARALLEL:
+
+      Clojure's `& {:keys [...] :or {...} :as m}` destructuring
+      shape became canonical for option-bag functions because
+      it gives named-args ergonomics AND hash-map composability
+      without choosing.
+
+      Clojure 1.11+ unified the two further — a function can be
+      called with EITHER inline keyword pairs OR a single trailing
+      hash-map; both work. wat-kwargs targets this same
+      unification.
+
+      PER THE FOUR QUESTIONS (locked):
+
+      - Obvious   ✅✅  — three conventions; named clearly;
+                          hash-map is just a hash-map
+      - Simple    ✅    — one type-check engine; surfaces are
+                          arrangement-only
+      - Honest    ✅✅✅ — structural impossibility of bypass; all
+                          surfaces flow through the same gate; the
+                          hash-map surface IS the call expression
+                          as data — REQUIRED, locked
+      - Good UX   ✅✅  — hash-map composability unlocks every
+                          functional pattern; works for one-off
+                          calls AND programmatic call construction
+
+    docs-updated:
+      - INDEX.yaml: this captured-beat (extends the previous
+        2026-05-03 beat on two forms with three conventions +
+        hash-map first-class)
+
+    documentation-discipline:
+      Per user direction this conversation:
+
+        "in our docs.. we are dilligent about hash-map != map ..
+        don't name error error..
+        kwargs => hash-map of symbol->something
+        map => apply function to list of things"
+
+      Discipline applied going forward:
+      - "hash-map" for the keyed data structure (never "map")
+      - "map" reserved for the higher-order function (apply fn to
+        list of things)
+      - Type names: should be `:wat::core::HashMap` or
+        `:wat::core::hash-map` — pending substrate naming check
+        (some existing scratch docs use PascalCase HashMap; that
+        may need normalization to kebab hash-map for Lisp-idiomatic
+        consistency; flagged for future sweep)
+      - Error variants: scoped names (HandlerError, ApiError,
+        ClientError); never bare `:Error`; never bare `error` as
+        a variable name
+      - This captured-beat itself uses the discipline — see code
+        samples above using `(:wat::core::hash-map ...)` and
+        `(:wat::core::merge ...)` and `(:wat::core::assoc ...)`
+
+    pending:
+      - Existing scratch docs using `:wat::core::HashMap`
+        (PascalCase) may need normalization to `:wat::core::hash-map`
+        (kebab) per the Lisp-idiomatic discipline; flagged for a
+        future sweep when convenient
+      - Confirm with wat-rs which form is the canonical type name;
+        scratch follows whatever wat-rs uses as substrate truth
