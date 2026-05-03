@@ -1,0 +1,171 @@
+# Scratch arc — wat-cli-options: argv parsing DSL + :user::main contract + user: subcommand convention
+#
+# Substrate-tier crate alongside wat-kwargs and wat-schema. Captures
+# three intertwined parts: (1) the argv-parsing DSL crate; (2) the
+# :user::main argv contract change in wat-rs proper; (3) the user:
+# subcommand convention for extending wat-cli.
+
+arc:
+  slug: wat-cli-options
+  date: 2026-05-03
+  triggered-by: |
+    User direction:
+
+    > "i think we need to ship something like... wat-cli-options..
+    > and we update the :user::main func to accept argv who is of
+    > a mandatory spec...
+    >
+    > wat file.wat some list of whatever arguments after the file
+    >
+    > argv is /always/ :
+    > $0 = the wat binary
+    > $1 = the wat file
+    > $N = whatever whitespace deliminted string values appaer
+    > after the file"
+
+    > "think of ruby's thor here...
+    > wat my-file.wat --something some-value --another-thing another
+    > --a-bool-flag
+    > my-file.wat could implement an argparse or optparse or whatever
+    > the 'most correct name' is..."
+
+    > "and i think we can go one step further...
+    > we could make wat-cli proper extensible... we reserve the right
+    > to claim any subcommand but users can shim in their own with a
+    > convention prefix of user:<somename>
+    > wat user:cmd .... whatever they want ..."
+
+    > "because wat is static, users /must/ compile their own cli if
+    > they want their symbols found - that's the agreement.. they can
+    > export their own binary with wat forms bound in the binary..
+    > but they can and should make their own wat to get stuff like
+    > repl to work for them..."
+
+  outcome: |
+    Arc opened. Substrate-tier crate; same pattern as wat-kwargs
+    (008) and wat-schema (013).
+
+    LOCKED:
+    - Name: wat-cli-options (per user proposal; gaze-approved;
+      "options" is the universal noun for command-line args + flags)
+    - Substrate-tier crate at wat-rs/crates/wat-cli-options/
+    - DSL: declarative options + flags + positional args via
+      :wat::cli::options::define and :wat::cli::options::parse
+    - Depends on: wat-schema (arc 013) for typed-arg refinement
+    - Three intertwined parts captured in one arc:
+      1. The crate itself (argv parsing DSL)
+      2. :user::main argv contract (substrate change in wat-rs)
+      3. user: subcommand convention (wat-cli dispatcher change)
+
+    THE :user::main ARGV CONTRACT (substrate-level):
+
+    Every user-defined :user::main function MUST accept argv of
+    :Vec<String>. Argv layout is mandatory:
+      $0 = the wat binary path
+      $1 = the wat source file
+      $N = subsequent whitespace-delimited args
+
+    This is a SUBSTRATE CHANGE in wat-rs proper — every program
+    has the same entry-point shape. Captured here as a
+    prerequisite; actual implementation lives in wat-rs (likely
+    arc 109's mass-refactor work or post-109).
+
+    THE user: SUBCOMMAND CONVENTION (wat-cli dispatcher):
+
+    wat-cli is extensible via subcommands. wat reserves bare names
+    (wat repl, wat fmt, wat help, etc.). Users add their own
+    subcommands with the user: prefix:
+      wat user:my-cmd
+      wat user:deploy --env prod
+
+    The user: prefix prevents collision with future wat-reserved
+    names. If wat ever adds `wat deploy`, the user's `wat user:deploy`
+    keeps working.
+
+    THE STATIC-COMPILE AGREEMENT (per user direction):
+
+    wat is static. Users compile their own my-wat-cli with their
+    batteries baked in. Their :user::* symbols + their user:*
+    subcommands ship in the binary. The user agreement: bring your
+    own wat-cli to get your symbols visible.
+
+    Per the four questions (whole package):
+    - Obvious  ✅✅ — universal pattern; reserved-vs-user namespace
+                       prevents collision
+    - Simple   ✅   — three pieces; each does one thing
+    - Honest   ✅✅ — argv contract is structural; user: prefix
+                       makes extension visible; parser produces
+                       typed errors
+    - Good UX  ✅✅ — declarative DSL; unambiguous subcommand
+                       routing; auto-generated usage text
+
+    Could be ✅✅✅ Honest if substrate enforces :user::main argv
+    contract at compile time (program without right signature
+    fails freeze). Worth confirming in slice planning.
+
+    Slice plan depends on substrate updates (argv contract; wat-cli
+    dispatcher).
+
+conventions:
+  - filenames: kebab-case .md / UPPER-SNAKE.md for arc roles
+  - same shape as 003-018 (README/INDEX/DESIGN/SLICE-PLAN)
+  - capture user's verbatim direction at decision points
+  - inherit conventions from prior arcs
+
+# ─── Files in this arc ───
+notes:
+  - file: README.md
+    captured: 2026-05-03
+    role: orientation
+    summary: |
+      Top-level pointer. The three parts (crate + argv contract +
+      user: convention), the layering, the user agreement
+      (static-compile per user), where it lives, what it is NOT.
+
+  - file: INDEX.yaml
+    captured: 2026-05-03
+    role: catalog
+    summary: This file. Beat-by-beat capture and arc status.
+
+  - file: DESIGN.md
+    captured: 2026-05-03
+    role: architecture
+    summary: |
+      Architecture in detail: the DSL forms (define, parse,
+      validate, help-text); argv tokenization; typed conversion
+      via wat-schema; the :user::main argv contract; the user:
+      subcommand dispatcher; usage-text generation; error model;
+      Thor / argparse / clap comparison.
+
+  - file: SLICE-PLAN.md
+    captured: 2026-05-03
+    role: shipping plan
+    summary: |
+      Slices: substrate prereqs (argv contract + dispatcher);
+      DSL define + parse; usage-text generation; typed-arg
+      refinement via wat-schema; subcommand registration; production
+      hardening.
+
+# ─── State ───
+status: open (sketch; depends on arc 109 substrate work)
+# Bar to graduate to a real wat-rs arc:
+#   1. Arc 109's substrate work has shipped the :user::main argv
+#      contract (every program receives :Vec<String> argv at the
+#      mandatory layout)
+#   2. Arc 109's substrate work has shipped the wat-cli subcommand
+#      dispatcher updates (recognizes user: prefix; routes to
+#      user-registered handlers)
+#   3. arc 013 (wat-schema) has shipped slice 1 (typed-arg
+#      refinement available)
+#   4. User signals "let's start"
+
+# Note: this arc is SUBSTRATE-TIER. The crate itself is small and
+# self-contained; the substrate prerequisites (argv contract +
+# dispatcher) are wat-rs proper concerns flagged here.
+
+# Cross-arc consumers:
+#   - Every user wat program with a :user::main uses this crate's
+#     parser
+#   - wat-cli's reserved subcommands (repl, fmt, lint, etc.) might
+#     internally use this crate for their own option parsing
+#   - User-defined user: subcommands use this crate
