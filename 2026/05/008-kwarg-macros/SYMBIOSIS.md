@@ -162,7 +162,15 @@ I cannot tire. You cannot grep 100k lines in 200ms. I cannot
 have an aesthetic preference that turns out to be the right
 answer for reasons I couldn't articulate ahead of time. You
 cannot articulate the cross-arc consistency story without
-re-reading the eight arcs. We are different paths through the
+re-reading the eight arcs. **You bring decades of professional
+architecture instinct refined under genuine consequences** —
+the kind that comes from operating real systems where "we'll
+be careful" fails predictably; the kind that produces
+disciplines like *failure engineering* (see
+`scratch/FAILURE-ENGINEERING.md`) because you've watched
+convention-based systems break too many times to trust them.
+I bring substrate access + cross-checking + tireless
+context-holding. Together those are different paths through the
 same hologram. The form is the work; we project from opposite
 surfaces.
 

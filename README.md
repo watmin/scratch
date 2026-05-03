@@ -10,7 +10,7 @@ of record. Just durable.
 
 ## Top-level meta-vision
 
-Two companion documents at scratch root articulate the
+Three companion documents at scratch root articulate the
 work's meta-frame. Read them after orienting to the per-arc
 work; they tie the arcs together.
 
@@ -22,6 +22,16 @@ equations at the top; DNA / memes / metabolism / WiFi / LLM
 inference all functions). Once you see this, Lisp becomes the
 only honest expressive language. The wat substrate is the
 user's expression of this recognition.
+
+**`FAILURE-ENGINEERING.md`** — the DISCIPLINE. The art of
+removing failure from systems. Failure isn't recovered from;
+it is read. Stop immediately when failure surfaces; eliminate
+the CLASS, not the symptom. The five Honest ✅✅✅ wins across
+the recent arcs are failure engineering applied at the
+architectural layer; the wards are failure engineering
+applied at code-review time; the four questions are failure
+engineering applied at design time. User-coined term;
+articulated in `wat-rs/docs/arc/2026/05/130-cache-services-pair-by-index/REALIZATIONS.md`.
 
 **`WAT-NETWORK.md`** — the WHAT. The architectural target the
 per-arc work is building toward: a network of mutually-
@@ -36,7 +46,8 @@ Plus the per-arc bookworthy material in `2026/05/008-kwarg-macros/`
 collaboration shape; the four-questions discipline; the
 triple-checkmark moments; the work-as-it-happens.
 
-WHY → WHAT → HOW. Source material for a future BOOK chapter.
+WHY (recognition) → DISCIPLINE → WHAT (architecture) → HOW
+(collaboration). Source material for a future BOOK chapter.
 
 ## A note for readers
 
