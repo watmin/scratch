@@ -905,3 +905,104 @@ and the user themselves — can SEE that the arcs in this scratch
 weren't independent design exercises. They were components of
 something the user has been building toward for years. The wat
 network is the target. The arcs are how it gets built.
+
+---
+
+## 2026-05-13 — Disconnect / panic discipline (arc 170 lays this)
+
+**Surfaced by:** Stone C leak audit + the shutdown-aware-channels
+backlog. The user articulated the architectural question:
+
+> *"we are laying the foundations for networked programs?... client
+> and server disconnect ride the same substrate now?... we shouldn't
+> panic on peers going away, but when threads or processes die the
+> panic is warranted"*
+
+The arc 170 substrate work (shutdown-aware channels + structured
+stderr + lock-step recv discipline) lays exactly the foundation
+networked programs need, because the doctrine distinguishes events
+at the right boundaries.
+
+### The three-event matrix
+
+| Event | Surface | Wat-level | Panic? |
+|---|---|---|---|
+| Graceful close / peer left / network disconnect | recv → `Disconnected` | `Ok(None)` | No (handled in match) |
+| Local thread crashed | `Thread/join-result` | `Err(ThreadDiedError::Panicked)` | Yes (Result/expect) |
+| Process shutting down | recv → `Shutdown` | `Err(ThreadDiedError::Shutdown)` | Yes (Result/expect) |
+| EDN parse failure (tier 2+) | recv → `DecodeError` | RuntimeError → thread death | Yes |
+
+### Why this maps cleanly onto the wat network
+
+**Tier 1 (in-process threads):** `Disconnected` covers thread-done
+AND thread-panicked at the recv site. The panic-vs-graceful distinction
+lives at `Thread/join-result`'s Err arm — captured as
+`ThreadDiedError::Panicked` with the chained EDN payload (arc 113).
+
+**Tier 2 (forked processes):** same model. `Disconnected` at recv;
+`Process/join-result` carries panic chain. Stone C ensured structured
+stderr cascades make this concrete.
+
+**Tier 3 (remote networked nodes):** networked peers get the discipline
+**for free** because the substrate treats remote disconnect identically
+to local-peer-cleanly-dropping-sender. There's no `join_result` for a
+remote node — and that's fine. The local process doesn't care WHY a
+remote left (graceful, crash, network partition); it just observes
+"channel closed → Ok(None) → handle next request." No panic.
+
+**Process-wide shutdown (SIGTERM/SIGINT/PR_SET_PDEATHSIG cascade):**
+distinct event class. Recv returns `Err(ThreadDiedError::Shutdown)` →
+Result/expect panics → service dies loudly with diagnostic. This is
+PROCESS-LEVEL termination, not connection-level.
+
+### The doctrine, named
+
+The user's framing:
+
+- **"we shouldn't panic on peers going away"** — networked peers are
+  remote universes. They have their own lifecycles. Their disconnect
+  is not OUR problem. → `Ok(None)`, match-handle, take next request.
+
+- **"when threads or processes die the panic is warranted"** —
+  threads and processes are part of OUR universe. Their death is
+  contract violation OR our process is being killed. → `Err`, panic
+  with chained diagnostic.
+
+The substrate distinguishes by **whose universe is the partner in**:
+- Same universe as me → death is panic-worthy → ThreadDiedError /
+  ProcessDiedError variants on the join boundary
+- Different universe (network) → death is normal lifecycle → just
+  Disconnected at recv
+
+### Why this composes with mTLS + signed-eval + content-addressing
+
+The other three load-bearing wat-network primitives (cryptographic
+identity, content-addressed programs, signed eval) all assume a layer
+underneath them where:
+- A peer goes away cleanly → not a panic
+- The local node detects this → handles next thing
+- The local node's OWN integrity (panic on internal failure) is preserved
+
+That layer IS arc 170's shutdown-aware channels. The signed-eval +
+mTLS + content-addressing primitives can be designed WITHOUT worrying
+about "what if my peer crashes" because the layer below handles that
+honestly already.
+
+### Cross-references
+
+- `wat-rs/docs/arc/2026/05/170-program-entry-points/DESIGN-SHUTDOWN-AWARE-CHANNELS.md`
+  — full design + empirical proof of the gap
+- `wat-rs/docs/arc/2026/05/170-program-entry-points/SHUTDOWN-AWARE-CHANNELS-BACKLOG.md`
+  — five-slice plan (A: infrastructure, B: Crossbeam multiplex,
+  C: PR_SET_PDEATHSIG, D: end-to-end probe, E: PipeFd multiplex)
+- `wat-rs/docs/arc/2026/05/170-program-entry-points/TIERS.md`
+  — the three tiers (in-process / forked-process / remote) + the
+  uniformity claim that the network rides on
+- arc 060 — `ThreadDiedError` original mint
+- arc 113 — cross-thread panic backtrace chain
+- arc 170 slice 1i — structured-stderr-only enforcement (where the
+  panic payload becomes EDN on the wire)
+
+The substrate work happening NOW (arc 170 slices A→E) is the load-
+bearing layer the wat network sits on. Same substrate, three tiers,
+uniform discipline at the boundaries.
