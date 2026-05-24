@@ -437,3 +437,15 @@ just one of its observations.*
 running. The latter is the corrected version.*
 
 ---
+
+---
+
+**Corrigendum — 2026-05-24:** Where this draft frames π as
+`(defn pi [c d] (/ c d))`, the example is wrong. `(/ c d)` is the
+*ratio* (the output — it presupposes a measured circle), not the
+function that *generates* π. The generative function takes no circle
+and converges through a **limit** (lambda calculus, not arithmetic) —
+e.g. arc-length integration of a quarter circle → 3.14159265358896…
+The recognition "π is a function, the constant is its output" stands
+and sharpens: the function is necessarily a limit. We needed lambda
+calculus to actually define it. See BOOK.md Chapter 58 Corrigendum.

@@ -302,3 +302,31 @@ extends to multiple cooperating substrates.
   recognition is honored end-to-end.
 
 For when the chapter is written — the source is here.
+
+---
+
+## Corrigendum — 2026-05-24
+
+The verbatim seed above includes *"pi is a function."* That recognition
+stands. But the example that got attached to it elsewhere — π as
+`(defn pi [c d] (/ c d))` — was wrong, and the correction sharpens the
+whole doc.
+
+`(/ c d)` is the *ratio*, not the function. It divides two quantities
+you already hold; to evaluate it you must already possess a circle's
+circumference and diameter, which means π was present in the measuring
+before the division ran. Dividing two givens reports a relationship —
+it does not generate the constant.
+
+The function that *defines* π takes no circle as input. It generates π
+from first principles through a **limit** — an infinite process of
+refinement. Lambda calculus, not arithmetic. (Empirically: a
+Newton's-method sqrt + a Kahan sum over 100,000,000 polygonal
+arc-length deltas of a quarter circle → 3.141592653588962, twelve
+digits correct, no circle measured.)
+
+This *strengthens* "functions are reality," it doesn't weaken it. The
+base unit isn't the arithmetic expression `(/ c d)` — that's a sample.
+The base unit is the *generative function*, which for any irrational
+constant is necessarily a limit. We needed lambda calculus to actually
+define it. The wave function at the bottom of reality is a limit too.
