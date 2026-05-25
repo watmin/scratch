@@ -127,3 +127,36 @@ The freeze invariant + pause's introspection + the EDN+newline
 protocol have been three separate properties of the substrate.
 Tonight they compose into a fourth property — **wat as the
 agent's Lisp** — that none of them implied alone.
+
+---
+
+## Extension — 2026-05-25 (the daemon revision)
+
+Three weeks and the 109→170→236 arcs later, the design was revisited cold and
+**re-derived the same spine** (one tool, speak-wat, EDN-in/out, `{"msg":...}`,
+REPL, MCP-as-dial-tone — a self-convergence). What grew: from *eval + pause*
+to a **persistent daemon that does real work** (spawns threads/processes,
+touches the world), enabled by the spawn/service/stdio primitives that landed
+in between. The new layer (all dated 2026-05-25):
+
+- **`the-daemon-revision`** — the convergence + the persistent-daemon model +
+  the key collapse: *spawn-program ≡ stdio = universe-residency with Claude as
+  a tier* (wat-mcp is `spawn-program` where the parent is Claude; the only new
+  surface is the JSON envelope).
+- **`transport-and-posture`** — stdio-only by construction: the loopback-
+  exploit class *ceases to exist* (no listener to attack); payload gated by
+  `def-restricted` + selective-hermetic; remote (UDS/TLS/mTLS) is a separate
+  future surface ("wat remote programs").
+- **`purpose-think-in-functions`** — the purpose: let the LLM express a
+  concept in wat and have it evaluated (writing programs + structural data
+  analysis). The one-tool collapse = *notation is the barrier* applied to the
+  agent interface (schemas are the "go learn Rust" of MCP; speak-wat is the
+  refusal). The coherence-gate frontier.
+- **`substrate-surface`** — audit of what's *shipped* to build a v1 from today
+  + the honest constraints (manual service pattern not `defservice`;
+  `HologramCache` LRU not `EngramHologram`; no network primitive; bridge /
+  telemetry renames).
+
+Net: a v1 is buildable today on shipped primitives, over stdio, with a thin
+JSON shim. Two named frontiers remain — durable-recall (`EngramHologram`) and
+the coherence gate (truth engine).
