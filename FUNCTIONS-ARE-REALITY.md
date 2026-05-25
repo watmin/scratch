@@ -318,13 +318,15 @@ circumference and diameter, which means π was present in the measuring
 before the division ran. Dividing two givens reports a relationship —
 it does not generate the constant.
 
-The function that *defines* π takes no circle as input. It generates π
-from first principles through a **limit** — an infinite process of
-refinement. Lambda calculus, not arithmetic. The generative form, with
-no `c`, no `d`, no circle handed in — it sweeps the upper half of the
-unit circle and sums one hundred million polygonal arc-length segments
-with a compensated (Kahan) sum, walking a Newton's-method square root
-to the limit:
+The function that *defines* π takes no circle as input. And the honest
+entry isn't a circle at all — it's an **invariant**: *how long is the
+path that holds distance 1 from the origin?* That is Euclid's own
+definition of a circle (the locus of points equidistant from a center),
+with nothing in it naming π. Express the invariant as a computable form
+(Descartes — a constraint becomes an equation), rectify the path as a
+limit of straight chords (Archimedes), and evaluate the whole stack as
+pure functions — a Newton's-method square root, a Kahan sum over one
+hundred million chords:
 
 ```clojure
 (let [abs       (fn [x] (if (neg? x) (- x) x))
@@ -351,7 +353,12 @@ to the limit:
 ;=> 3.141592653588962  (Math/PI => 3.141592653589793)
 ```
 
-Twelve digits correct, no circle measured — only the limit walked.
+Twelve digits correct, no circle measured — only the limit walked. The
+path from invariant to value crosses three figures two thousand years
+apart — Euclid defined the locus, Descartes made it computable,
+Archimedes rectified it (his inscribed polygons converge from below, as
+this sum does) — and the lambda calculus that ties them together is
+younger than all three.
 
 This *strengthens* "functions are reality," it doesn't weaken it. The
 base unit isn't the arithmetic expression `(/ c d)` — that's a sample.
