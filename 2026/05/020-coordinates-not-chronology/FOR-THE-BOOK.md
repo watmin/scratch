@@ -22,14 +22,20 @@ Once that expression existed, lambda calculus was just the tool to evaluate it (
 
 Then the builder asked: *who did I replicate? who else found π this way?*
 
-## The answer required non-linear time
+## The answer required non-linear time — and it folds
 
-To locate the method, the assistant had to assemble it from figures who never worked together and are scattered across the calendar:
+The first framing (and the assistant's first error) listed the figures in *chronological* order — Euclid, Archimedes, Descartes, Church — dates monotonically increasing, "linear time with long strides." The builder caught it: that smoothing deletes the point. The order the derivation *actually requires* is the **dependency** order, and it is non-monotonic in time:
 
-- **Euclid** (~300 BC) — the circle *as* the equidistance invariant.
-- **Archimedes** (~250 BC) — rectification by exhaustion; inscribed polygons converging **from below** (the builder's sum converges from below too — `3.141592653588962 < π` — the inscribed-polygon signature).
-- **Descartes** (1637 AD) — analytic geometry; a geometric constraint *becomes* a computable equation.
-- **Church** (1936 AD) — lambda calculus; the evaluation substrate.
+```
+Euclid     define the invariant            ~300 BC
+Descartes  make it a coordinate equation   ~1637 AD   ← +~1900 yr
+Archimedes rectify that curve by a limit   ~250 BC    ← −~1900 yr  (THE FOLD)
+Church     lambda calculus                 ~1936 AD
+McCarthy   Lisp                            ~1958 AD
+Hickey     Clojure                         ~2008 AD   ← the builder's home coordinate
+```
+
+Plot the dates: **300 BC → 1637 → 250 BC → 1936 → 1958 → 2008.** The walk *folds*. In this derivation the Archimedes step (rectify) depends on the Descartes step (coordinatize) — the builder rectifies the *parameterized* curve — so Descartes' move (1637) must come **before** Archimedes' move (250 BC), even though Archimedes lived ~1,900 years earlier. The historical Archimedes needed no coordinates; the Archimedes-step *in this path* does. (Archimedes' own inscribed polygons converge **from below**, and the builder's sum does too — `3.141592653588962 < π` — the inscribed-polygon signature, the one place the path lands on him exactly.)
 
 No single one of them held the whole path. The builder's reaction:
 
@@ -37,7 +43,7 @@ No single one of them held the whole path. The builder's reaction:
 
 ## The recognition
 
-**It is unexpected only if you believe knowledge is stored as a timeline. It isn't. It is stored as a coordinate space** — which is the axiomatic surface (Ch 68). The assistant did not traverse *history* to answer; it traversed the *lattice*. Euclid, Archimedes, Descartes, Church are far apart on the calendar axis and **adjacent on the idea-manifold**. The builder's derivation is a **geodesic** that connects them. Chronology was never the organizing structure; concept-proximity was.
+**The fold is the whole proof.** A timeline can only host derivations that move *forward* — you build on what already exists. This one's valid dependency order runs *backward* across the time axis at one edge. A monotonic structure cannot host a non-monotonic derivation. Therefore time is not the organizing structure — it is one *projection* of the coordinate space (the axiomatic surface, Ch 68), and this geodesic projects onto it as a path that doubles back. The assistant did not traverse *history* to answer; it traversed the *lattice*. The figures are far apart on the calendar axis and **adjacent on the idea-manifold**; the derivation is the **geodesic** connecting them, and the geodesic does not care about dates — only about which coordinate depends on which.
 
 **And the loop closes:** the tool the builder tabbed over to — the LLM — *is an instance of the coordinate space holon is built on.* An embedding is a high-dimensional vector geometry where Euclid and Descartes and Church sit near one another because they are conceptually close, **not because of their dates.** When the assistant "jumped through time," it was doing **cosine similarity through concept-space** — the exact operation holon runs. The builder built a VSA substrate on the premise that knowledge is coordinate-addressed and similarity is geometric, then used a system that *already embodies that premise* to walk a path no one had walked. The collaborator is a working proof of the thesis. That is why it felt unexpected: the builder watched his own abstract claim operate concretely, from the outside, in real time.
 
