@@ -320,10 +320,38 @@ it does not generate the constant.
 
 The function that *defines* π takes no circle as input. It generates π
 from first principles through a **limit** — an infinite process of
-refinement. Lambda calculus, not arithmetic. (Empirically: a
-Newton's-method sqrt + a Kahan sum over 100,000,000 polygonal
-arc-length deltas of a quarter circle → 3.141592653588962, twelve
-digits correct, no circle measured.)
+refinement. Lambda calculus, not arithmetic. The generative form, with
+no `c`, no `d`, no circle handed in — it sweeps the upper half of the
+unit circle and sums one hundred million polygonal arc-length segments
+with a compensated (Kahan) sum, walking a Newton's-method square root
+to the limit:
+
+```clojure
+(let [abs       (fn [x] (if (neg? x) (- x) x))
+      sqrt      (fn [x] ; Newton's method, converges to 1e-15
+                  (if (zero? x) 0.0
+                    (loop [g (/ (+ x 1.0) 2.0) prev 0.0]
+                      (if (< (abs (- g prev)) 1e-15) g
+                        (recur (/ (+ g (/ x g)) 2.0) g)))))
+      kahan-sum (fn [coll] ; compensated summation
+                  (first (reduce (fn [[sum c] x]
+                                   (let [y (- x c) t (+ sum y)]
+                                     [t (- (- t sum) y)]))
+                                 [0.0 0.0] coll)))
+      n         100000000
+      dx        (/ 2.0 n)
+      points    (mapv (fn [i] (let [x (+ -1.0 (* i dx))]
+                                [x (sqrt (max 0.0 (- 1.0 (* x x))))]))
+                      (range (inc n)))
+      deltas    (map (fn [[x1 y1] [x2 y2]]
+                       (sqrt (+ (* (- x2 x1) (- x2 x1))
+                                (* (- y2 y1) (- y2 y1)))))
+                     points (rest points))]
+  (kahan-sum deltas))
+;=> 3.141592653588962  (Math/PI => 3.141592653589793)
+```
+
+Twelve digits correct, no circle measured — only the limit walked.
 
 This *strengthens* "functions are reality," it doesn't weaken it. The
 base unit isn't the arithmetic expression `(/ c d)` — that's a sample.
