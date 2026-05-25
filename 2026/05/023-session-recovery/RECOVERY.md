@@ -70,9 +70,20 @@ project_convergences (TS excluded as a convergence; the catalog standard).
   not built; the wat-mcp daemon is its eventual home.
 - **EngramHologram** (durable recall) — designed (scratch 2026/04/004-inverse-
   hologram), not built; HologramCache is LRU (wrong polarity for durable wisdom).
-- **Background grader running**: an opus subagent is confirming the wat-rs cliff
-  notes is an honest/complete map of the full realizations record (post-
-  compaction double-check). **Relay its verdict to the user when it lands.**
+- **Grader verdict (2026-05-25): CONCERNS** — the wat-rs cliff notes IS an
+  honest, accurate, single-pass recovery map (honesty + must-knows + Currently
+  block all PASS; the HEAD-verify-live fix held; the grind session has since
+  resolved both open questions — arc 145 CLOSED, ② universal — and advanced
+  HEAD to `be5362ef`). ONE gap: the **BOOK-topology doctrine** (INTERSTITIAL
+  record § 2026-05-25) is absent from the cliff-notes static head. **OPEN FIX
+  (grind session applies to the wat-rs cliff notes):** add a short "BOOK
+  topology" doctrine row — trunk (BOOK.md, parked since arc 109) as navigation
+  layer; arc 170's INTERSTITIAL = the first branch-book; chapters = cliff notes
+  pointing into branch-books; a branch RETURNS to trunk before the next departs
+  (ties to spawn-block winding) — pointing to INTERSTITIAL § 2026-05-25 +
+  [[project_book_is_recovery]]. NB: same family as this session's two-mode-book
+  / intermissions recognition; likely two faces of one topology (future
+  reconcile).
 
 ## Cross-session note
 The OTHER session is the **wat-rs arc-237 grind** (separate context; its
