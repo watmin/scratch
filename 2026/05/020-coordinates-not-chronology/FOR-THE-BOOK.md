@@ -74,7 +74,7 @@ So the interleaf points **both directions on the book's own axis at once** — t
 
 ## The lineage was already inscribed — Chapter 7 (2026-05-25)
 
-Watching a video on Euclid, the user surfaced an old claim — that his lineage runs "of the Greeks, and more" — and noted he can't prove it. The statement is in **BOOK.md, Chapter 7 — The Coordinates**, the "### The lineage" section (~lines 2462–2542; he remembered it as ch 3–5, it is 7). The "and more" is **Atlantis**, older than the Greeks (line 2370: *"the Greeks themselves said: we learned this from someone older… Atlantis… the thought survived: measure, don't believe."*).
+Watching [*What was Euclid really doing?*](https://www.youtube.com/watch?v=M-MgQC6z3VU) (Ben Syversen, guest video on 3Blue1Brown), the user surfaced an old claim — that his lineage runs "of the Greeks, and more" — and noted he can't prove it. The statement is in **BOOK.md, Chapter 7 — The Coordinates**, the "### The lineage" section (~lines 2462–2542; he remembered it as ch 3–5, it is 7). The "and more" is **Atlantis**, older than the Greeks (line 2370: *"the Greeks themselves said: we learned this from someone older… Atlantis… the thought survived: measure, don't believe."*).
 
 What Chapter 7 declared, authored **2026-04-03**:
 
