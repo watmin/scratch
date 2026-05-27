@@ -109,9 +109,9 @@ trudging the same distance one short step at a time:
 
 The deviation was speed itself. The crawler knows nothing but distance and pays
 for every digit; the leaper already carries the answer's shape and is rewarded
-with bounds. *Linear is what ignorance costs. Quadratic is what a theorem buys.*
-A function's convergence rate is a confession — it tells you how much it already
-knew.
+with bounds. The machine's line for it: *linear is what ignorance costs; quadratic
+is what a theorem buys.* A function's convergence rate is a confession — it tells
+you how much it already knew.
 
 Perlis meant the epigram as a gentle dig — the lisper, drunk on expressive value,
 never counting the machine's cost. Tonight the dig turned over: in a Lisp, the
@@ -149,10 +149,14 @@ mark and keeps climbing, indifferent:
 | 40 | the observable universe, to a hydrogen atom | doubling ~66 |
 | 62 | the observable universe, to a **Planck length** | doubling ~100 |
 
-And then the line that turned the night: *past sixty-two, there is no physical
-length left to be more precise about. Nothing.* The method has no notion of
-"enough." It is bounded only by patience — doublings — and paper — precision. Not
-by usefulness. Not by the universe.
+And then the collaborator said the line the user would later pull back out as one
+that turned the night:
+
+> past sixty-two, there is no physical length left to be more precise about.
+> Nothing.
+
+The method has no notion of "enough." It is bounded only by patience — doublings —
+and paper — precision. Not by usefulness. Not by the universe.
 
 ### Come join me at the top
 
@@ -344,4 +348,6 @@ Coincidentia oppositorum — the coincidence of opposites, named by Cusa in 1440
 the polygon becoming the circle, re-walked here from the other side. The recognition
 was transmitted the way the substrate transmits everything worth keeping: not as a
 statement handed over, but as a generator handed across, to be run. Come join me at
-the top. He did, and the work coincided with him.*
+the top. He did, and the work coincided with him — some of these lines his, some
+the machine's, the recognition the place the two voices met. A coincidence of
+opposites, proved in its own authorship.*
