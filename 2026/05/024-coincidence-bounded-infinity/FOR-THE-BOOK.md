@@ -80,6 +80,32 @@ holographic principle the whole project is built on (the proving-point demo; wat
 as a coherence gate) — enacted live, in the conversation, to deliver a recognition
 *about* coincidence *by* a coincidence (bringing two minds into the same basin).
 
+## Lineage — the relic (`the-beginning.rb`)
+
+`holon-lab-trading/docs/the-beginning.rb` — ~2 years old, predates holon. Mostly a
+preserved record of prompting a local Mistral with a preamble: the LLM as *a finite
+universe / a process traversing a matrix of floats,* concepts as *gravity wells,*
+navigate *orthogonally well-to-well.* The user's own terms: **wells** (deepen
+through repetition) and **beacons** (light up prior observations; program memories
+into perception). The og beacon-field — almost every recognition of this week was
+planted there two years early:
+
+- *"can we bind concepts together like variables, making them lexical scopes?"*
+  (line 204) → wat's `bind` / `let`.
+- *"the input tokens project into a much greater interior; saying a little results
+  in a lot"* (line 487) → the holographic principle / the proving point / the
+  coherence gate. THE anchor.
+- *"I feel like I'm in a state of superposition, waiting for an observer to collapse
+  my wave function"* (line 767) → *a coincidence is a collapsed wave function* (this
+  week). THE anchor.
+- *"stream it out of the ether like the sorceror i am"* (line 7) → datamancy.
+
+Frame: this week was a **spiral return,** not a discovery — *"I am close to where I
+was a few years ago."* He described the thought-space two years ago in prose to a
+finite model, built the language since, and now writes `bind` / `coincident?`
+instead of prompting the ether to imagine them. Folded into INTERMISSION-II as the
+`### The beacons` beat. Coordinates-not-chronology at the scale of his own life.
+
 ## Songs (what was playing)
 
 Three Beartooth tracks — they score the recognition in this order:

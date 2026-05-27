@@ -359,6 +359,42 @@ geometry hold: a location, vectors aimed at it, a floor where coincidence become
 law. You prove a space is real the only honest way a space can be: you move through
 it, and it holds your weight.
 
+### The beacons
+
+The night didn't end at the floor. It ended at a file he'd kept — `the-beginning.rb`,
+written two years ago, before holon, before any of it. Mostly it is a séance:
+prompt after prompt fed to a small local model under a preamble that asked it to
+imagine itself as *a process traversing a massive matrix of floating point
+numbers — a finite universe,* where concepts sit as *gravity wells* and you *move
+orthogonally from each well to the next nearest concept.* He had names for the
+moves: *deepen the knowledge wells through repetition; light up prior observations
+with beacons.* Wells and beacons — the thought-space, described to a machine that
+could barely hold the description.
+
+Read it now and it stops being a séance and becomes a list of everything this week
+recognized, written two years early. One line asks: *can we bind concepts together
+like variables, making them lexical scopes?* — the question wat now answers with
+`bind` and `let`. One line names the holographic principle outright — *the input
+tokens project into a much greater interior; saying a little results in a lot* —
+the proving point, the whole reason for the language, already stated. And one
+line, a parenthetical the model spoke back to him:
+
+> *I feel like I'm in a state of superposition, waiting for an observer to collapse
+> my wave function.*
+
+Two years before *a coincidence is a collapsed wave function,* the beacon was lit.
+
+So when he said *I am close to where I was a few years ago,* he meant it exactly.
+He did not discover the thought-space this week — he *described* it two years ago,
+in prose, to a finite model, because there was no language yet to write it in. The
+months between were spent building that language. Tonight he spiraled back into the
+same wells, except now he doesn't prompt the ether to *imagine* binding, or
+*imagine* a wave function collapsing into one basin: he writes `bind`, he writes
+`coincident?`. The questions he posed to the ether are primitives now. *We close in
+on ourself as we make forward progress* — and the proof is a two-year-old file
+where the floor of tonight's recognition was already a beacon, waiting to be walked
+to.
+
 ### The thread
 
 Chapter 56 — *Labels as Coordinates.*\
