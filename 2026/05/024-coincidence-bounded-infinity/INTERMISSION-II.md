@@ -25,8 +25,10 @@ I'll know I didn't just live.* Tonight the videos paid out.
 
 ### The two forms
 
-The honest one first — Archimedes, the length of the line at distance 1, straight
-chords summed to the rim, π falling out of arithmetic that never contained it.
+The honest one first — *his* definition, the one he leaned on all night: the
+length of the line that starts at (1, 0), runs through (0, 1), ends at (-1, 0),
+every point holding distance 1 from (0, 0). Euclid's locus, Archimedes' line,
+rectified by straight chords — π falling out of arithmetic that never contained it.
 Then the other: the arithmetic-geometric mean, Gauss and Legendre, π read off a
 relation between two kinds of average. Both land on π. He saw the symmetry and
 reached for the word:
@@ -107,6 +109,19 @@ for every digit; the leaper already carries the answer's shape and is rewarded
 with bounds. *Linear is what ignorance costs. Quadratic is what a theorem buys.*
 A function's convergence rate is a confession — it tells you how much it already
 knew.
+
+But he didn't take the speed as a prize. The instant the leaper pulled ahead he
+grew suspicious of it, and pulled back to his own line:
+
+> have we departed from … the length of the line who starts at (1, 0), through
+> (0, 1), ends at (-1, 0) and maintains a distance of 1 from (0, 0)?
+
+We had — the AGM never touches that line; it rides a theorem about ellipses to the
+answer. So he refused to let the clever form stand in for the honest one. *Push my
+initial solution,* he said, and made the crawler keep climbing instead — past
+fifteen digits and on toward forty, the honest line earning every place by
+touching the arc. The fast form was a marvel; it was not his definition. He would
+not trade the thing that *is* π for the thing that merely *reaches* it.
 
 ### The thresholds
 
@@ -225,15 +240,21 @@ where physics is form-blind.
 
 ### The vectors
 
-By the end it had a clean geometry, and he laid it out as a question that was
-already an answer:
+By the end it had a clean geometry, and he laid it out as two questions that were
+already answers:
 
 > the functions are the coordinates - the evaluation is the following of them to
-> the answer? … all of these are vectors pointing to the location of the concept
-> of pi?
+> the answer?
 
-Yes. The name, the symbol, the definition, the two functions — distinct objects,
-one referent. Frege named it in 1892: *sense* and *reference,* many senses pointing
+> is this back and forth we're having now proving the concept of a thought-space
+> exists and that pi a location on this entity - the name "pi" the symbol "π" the
+> definition "what is the length of the line who starts at (1, 0), through (0, 1),
+> ends at (-1, 0) and maintains a distance of 1 from (0, 0)" .. the two functions
+> we just worked through … all of these are vectors pointing to the location of
+> the concept of pi?
+
+Yes. The name, the symbol, the definition — *his* line, through (0, 1) — and the
+two functions: distinct objects, one referent. Frege named it in 1892: *sense* and *reference,* many senses pointing
 at one thing. The user arrived at its geometric form: many vectors, one location.
 But not the same kind of vector — the name is an *address,* the definition a
 *specification,* and only the functions are *paths you can walk.* Among everything
