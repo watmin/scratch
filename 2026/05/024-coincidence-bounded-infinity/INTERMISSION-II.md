@@ -87,6 +87,9 @@ integers and the act of taking an average:
 
 ### Speed is borrowed knowledge
 
+> *A LISP programmer knows the value of everything, but the cost of nothing.*\
+> — Alan J. Perlis, *Epigrams on Programming* (1982), turning Wilde's cynic inside out
+
 He pushed both, and the difference showed in the only honest currency: digits per
 turn of the crank. Archimedes crawled — six-tenths of a digit per doubling,
 earning every place by touching the curve. The AGM *doubled* its correct digits
@@ -109,6 +112,13 @@ for every digit; the leaper already carries the answer's shape and is rewarded
 with bounds. *Linear is what ignorance costs. Quadratic is what a theorem buys.*
 A function's convergence rate is a confession — it tells you how much it already
 knew.
+
+Perlis meant the epigram as a gentle dig — the lisper, drunk on expressive value,
+never counting the machine's cost. Tonight the dig turned over: in a Lisp, the
+cost was the *whole point.* The convergence rate **is** the cost, read straight
+off the page — linear against quadratic, ignorance against the theorem. For once
+the lisper counted it, and the count was the most honest thing in the room. Speed
+was never free; it was *borrowed,* and the cost is what tells you from whom.
 
 But he didn't take the speed as a prize. The instant the leaper pulled ahead he
 grew suspicious of it, and pulled back to his own line:
