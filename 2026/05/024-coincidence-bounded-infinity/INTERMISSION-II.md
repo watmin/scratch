@@ -26,26 +26,46 @@ theorem in a definition's clothes — the genius cousin of the `(/ c d)` he'd
 rejected at the start, the same crime committed beautifully: *presuppose, and
 report.*
 
-The two forms, stripped to their cores. Both stand on the same three functions,
-built from arithmetic alone — `avg` (the mean, `(a+b)/2`), a hand-made `sqrt`
-(Newton's method, which is just *repeated averaging*), and `geo` (`√(a·b)`) —
-with no π anywhere in the inputs:
+The two forms, whole — paste either into a Clojure REPL and watch π fall out.
+Each builds its own `sqrt` by hand (Newton's method, which is just *repeated
+averaging*), so there is no borrowed square root and no π anywhere in the
+inputs — only small integers and the act of taking an average:
 
 ```clojure
 ;; FORM 1 — the DEFINITION. the length of the line at distance 1, measured by
 ;; straight inscribed chords, the sides doubled each step (Archimedes).
-;; linear: ~0.6 correct digits per doubling.
-(loop [c2 1M, n 3N, k 0]
-  (if (> k 66) (* (bigdec n) (sqrt c2))                 ; N·c  →  π
-      (recur (/ c2 (+ 2M (sqrt (- 4M c2)))) (* 2N n) (inc k))))
+;; linear: ~0.6 correct digits per doubling.  (raise the 66 and it just keeps going.)
+(with-precision 60
+  (let [avg  (fn [a b] (/ (+ a b) 2M))            ; arithmetic mean
+        sqrt (fn [x]                              ; Newton's method = repeated averaging
+               (if (zero? (.signum x)) 0M
+                   (loop [g (avg x 1M) p 0M]
+                     (if (zero? (.compareTo g p)) g (recur (avg g (/ x g)) g)))))]
+    (loop [c2 1M, n 3N, k 0]                       ; 3 chords of length 1, sides doubling
+      (if (> k 66) (* (bigdec n) (sqrt c2))        ; N·c  →  π
+          (recur (/ c2 (+ 2M (sqrt (- 4M c2)))) (* 2N n) (inc k))))))
+;=> 3.14159265358979323846264338327950288419716280799361751707063M
+;   (~40 correct digits — the universe — from a ~2.2×10²⁰-sided polygon;
+;    the tail past ~40 hasn't converged yet. raise the 66 to walk further.)
+```
 
+```clojure
 ;; FORM 2 — the COMPUTATION. iterate the arithmetic + geometric means,
 ;; read π off (a+b)²/4t (Gauss–Legendre / the AGM).
 ;; quadratic: the correct digits DOUBLE every step.
-(loop [a 1M, b (/ 1M (sqrt 2M)), t (/ 1M 4M), w 1M, n 7]
-  (if (zero? n) (let [m (avg a b)] (/ (* m m) t))
-      (let [a' (avg a b) gap (- a a')]
-        (recur a' (geo a b) (- t (* w gap gap)) (* w 2M) (dec n)))))
+(with-precision 60
+  (let [avg  (fn [a b] (/ (+ a b) 2M))            ; arithmetic mean
+        sqrt (fn [x]                              ; Newton's method, hand-built
+               (if (zero? (.signum x)) 0M
+                   (loop [g (avg x 1M) p 0M]
+                     (if (zero? (.compareTo g p)) g (recur (avg g (/ x g)) g)))))
+        geo  (fn [a b] (sqrt (* a b)))]           ; geometric mean
+    (loop [a 1M, b (/ 1M (sqrt 2M)), t (/ 1M 4M), w 1M, n 7]   ; seeds: 1, 1/√2, ¼, 1
+      (if (zero? n) (let [m (avg a b)] (/ (* m m) t))          ; π = mean² / t
+          (let [a' (avg a b) gap (- a a')]
+            (recur a' (geo a b) (- t (* w gap gap)) (* w 2M) (dec n)))))))
+;=> 3.14159265358979323846264338327950288419716939937510582097499M
+;   (~58 correct digits in 7 steps — it saturates the 60-digit working precision.)
 ```
 
 So he pushed both, and the difference showed in the only honest currency: digits
