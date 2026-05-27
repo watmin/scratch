@@ -26,6 +26,28 @@ theorem in a definition's clothes — the genius cousin of the `(/ c d)` he'd
 rejected at the start, the same crime committed beautifully: *presuppose, and
 report.*
 
+The two forms, stripped to their cores. Both stand on the same three functions,
+built from arithmetic alone — `avg` (the mean, `(a+b)/2`), a hand-made `sqrt`
+(Newton's method, which is just *repeated averaging*), and `geo` (`√(a·b)`) —
+with no π anywhere in the inputs:
+
+```clojure
+;; FORM 1 — the DEFINITION. the length of the line at distance 1, measured by
+;; straight inscribed chords, the sides doubled each step (Archimedes).
+;; linear: ~0.6 correct digits per doubling.
+(loop [c2 1M, n 3N, k 0]
+  (if (> k 66) (* (bigdec n) (sqrt c2))                 ; N·c  →  π
+      (recur (/ c2 (+ 2M (sqrt (- 4M c2)))) (* 2N n) (inc k))))
+
+;; FORM 2 — the COMPUTATION. iterate the arithmetic + geometric means,
+;; read π off (a+b)²/4t (Gauss–Legendre / the AGM).
+;; quadratic: the correct digits DOUBLE every step.
+(loop [a 1M, b (/ 1M (sqrt 2M)), t (/ 1M 4M), w 1M, n 7]
+  (if (zero? n) (let [m (avg a b)] (/ (* m m) t))
+      (let [a' (avg a b) gap (- a a')]
+        (recur a' (geo a b) (- t (* w gap gap)) (* w 2M) (dec n)))))
+```
+
 So he pushed both, and the difference showed in the only honest currency: digits
 per turn of the crank. Archimedes crawled — six-tenths of a digit per doubling,
 earning every place by touching the curve. The AGM *doubled* its correct digits
@@ -38,6 +60,16 @@ for every digit; the leaper already carries the answer's shape and is rewarded
 with bounds. *Linear is what ignorance costs. Quadratic is what a theorem buys.*
 A function's convergence rate is a confession — it tells you how much it already
 knew.
+
+You could watch the gap in the digit counts — the leaper bounding, the crawler
+trudging the same distance one short step at a time:
+
+```clojure
+;; FORM 2 (AGM) — leaps; correct digits double:
+;;   iter 1 → 3    iter 2 → 8    iter 3 → 19    iter 4 → 41    iter 5 → 71
+;; FORM 1 (chords) — crawls; ~0.6 digits per doubling:
+;;   doublings 10 → 7    30 → 19    60 → 37    100 → 62
+```
 
 Then the thresholds, each one a place where the world stops needing more. Fifteen
 digits: NASA, the solar system navigated to within a hand's width. He saw it
@@ -122,14 +154,21 @@ counting the sides of a polygon.
 
 So they proved it. Both forms pushed to the Planck floor — the crawler's polygon
 of nearly four-times-ten-to-the-thirtieth straight chords, the leaper's five
-iterations — sixty-two digits, set side by side. *Identical.* `true`. Two
-opposites, every digit the same up to the exact place where coincidence stops
+iterations — sixty-two digits, set side by side:
+
+```
+3.1415926535897932384626433832795028841971693993751058209749445   ;=> true
+```
+
+*Identical.* Two opposites, every digit the same up to the exact place where coincidence stops
 being a measurement and becomes a law. The define and the compute are both real,
 and distinct, and *physically invisible at the resolution of the universe.*
 
 He sealed it with six characters of arithmetic:
 
-> `(= 4 (+ 2 2) (- 5 1) (* 1 4) (/ 8 2) (mod 9 5))`
+```clojure
+(= 4 (+ 2 2) (- 5 1) (* 1 4) (/ 8 2) (mod 9 5))   ;=> true
+```
 
 Six forms that share no structure, one value, `true`. Because there are two ways
 for things to coincide, and his substrate has both: **form** coincidence — do the
