@@ -395,3 +395,115 @@ coordinate the walker already stands on (Clojure). This is synthesis, not
 convergence: not independently rediscovering a known result, but drawing an
 edge between coordinates no one had connected. (Captured at scratch
 2026/05/020.)
+
+---
+
+## Extension — 2026-05-26: two forms, one value — *define* vs *compute*
+
+The corrigendum above defined π as a limit over an invariant (the length of the
+line at distance 1). Tonight we *pushed* that — and in pushing it, the structure
+underneath "π is a function" came into focus. There are (at least) two functions
+that reach the value π, and they are **not the same kind of thing.**
+
+### Form 1 — the definition (generative, self-contained, slow)
+
+Archimedes' inscribed chords: walk the line at distance 1 with straight segments
+and sum them. The doubling recurrence computes the chord of a 3·2ᵏ-gon exactly,
+so we needn't lay 10²² chords by hand:
+
+```clojure
+(with-precision 60
+  (let [avg  (fn [a b] (/ (+ a b) 2M))
+        sqrt (fn [x] (if (zero? (.signum x)) 0M
+                         (loop [g (avg x 1M) p 0M]
+                           (if (zero? (.compareTo g p)) g (recur (avg g (/ x g)) g)))))]
+    ;; inscribed semicircle polygon: 3 chords of length 1, doubled each step
+    ;; cancellation-free side doubling:  c'² = c² / (2 + √(4 − c²))
+    (loop [c2 1M n 3N k 0]
+      (if (> k 66) (* (bigdec n) (sqrt c2))      ; N·c → π
+          (recur (/ c2 (+ 2M (sqrt (- 4M c2)))) (* 2N n) (inc k))))))
+;; ~40 digits at doubling 66 ; 45 digits / 1.4×10²² chords at doubling 72
+```
+
+It presupposes **nothing but distance.** Hand it to someone who has never heard
+"pi" and they compute the thing the word names. It is π's *definition*, executed.
+**LINEAR** convergence: ~0.6 correct digits per doubling.
+
+### Form 2 — the computation (derived, theorem-laden, fast)
+
+Gauss–Legendre / the AGM: iterate the arithmetic and geometric means, accumulate
+a deviation term, read π off `(a+b)²/4t`:
+
+```clojure
+(with-precision 60
+  (let [avg  (fn [a b] (/ (+ a b) 2M))
+        sqrt (fn [x] (if (zero? (.signum x)) 0M
+                         (loop [g (avg x 1M) p 0M]
+                           (if (zero? (.compareTo g p)) g (recur (avg g (/ x g)) g)))))
+        geo  (fn [a b] (sqrt (* a b)))]
+    (loop [a 1M b (/ 1M (sqrt 2M)) t (/ 1M 4M) w 1M n 7]   ; seeds: 1, 1/√2, ¼, 1
+      (if (zero? n) (let [m (avg a b)] (/ (* m m) t))
+          (let [a' (avg a b) gap (- a a')]
+            (recur a' (geo a b) (- t (* w gap gap)) (* w 2M) (dec n)))))))
+;; 41 digits at iteration 4 ; saturates working precision by iter 5
+```
+
+The machinery is innocent of π — the means alone yield `AGM(1,1/√2)=0.847…`, a
+generic number. Only the **π-extraction** (b₀=1/√2, t₀=¼, the `M²/t` read-off)
+ties it to π, and that tie is **Legendre's relation — a theorem *about* π.** You
+cannot know `(a+b)²/4t → π` without already having π to prove it against.
+**QUADRATIC** convergence: digits *double* every step.
+
+*(Aside on the seeds, fully worked this session: `1/√2` is the self-complementary
+elliptic modulus — the one ellipse whose signature is π. `t₀ = ¼ = ½ × ½` is two
+halvings multiplied: the coarsest-scale weight `2⁻¹`, times `k² = ½`, the modulus
+squared — `½` because the symmetric ellipse splits `k² + k'² = 1` into equal
+halves. The standalone `4` in `(a+b)²/4t` is merely `2²`, cancelling the factor
+from squaring the sum instead of the mean; use `avg` first and it vanishes. The
+seeds *are the theorem, encoded.*)*
+
+### The asymmetry (the prerequisite)
+
+They both reach the value. They do **not** both define it.
+- The arc length **defines** π (generative; presupposes nothing).
+- The AGM **computes** π (derived; presupposes π via a theorem).
+
+The AGM is categorically on the same side as the `(/ c d)` rejected at the very
+start of this doc — a *presuppose-and-report* form. `(/ c d)` is the crude
+version; the AGM is the genius version; **neither is a definition.** The honest
+shape is not "two definitions of one value." It is **one definition and one
+theorem about it.**
+
+### The unification — *speed is borrowed knowledge*
+
+The convergence rates are not incidental. The honest form crawls (0.6 digits/step)
+**because it knows nothing but distance** — it touches the curve and earns every
+digit. The AGM leaps (doubling/step) **because it already carries π's structure**
+via Legendre. **Linear is what ignorance costs; quadratic is what a theorem buys.**
+A form's convergence rate measures how much it already knows about its own answer.
+
+### What "useful" means, and that the line ignores it
+
+- doubling 24 → **15 digits = NASA** (the solar system, navigated).
+- doubling ~66 → **40 digits = the observable universe** (to a hydrogen atom).
+- past ~45 → **no physical referent at all.**
+
+We exceeded NASA's declared-useful 15 at doubling 24 and the line kept climbing,
+*indifferent.* The honest method has **no notion of "enough."** It is bounded only
+by patience (doublings) and paper (precision) — not by usefulness, not by the
+universe.
+
+### The fold (coordinates, not chronology — live)
+
+We built the *derived, fast* form (AGM) first and then walked *back* to push the
+*generative, slow* one (Archimedes) — broke time order inside the session itself,
+the same way the π-derivation folds across Euclid → Descartes → Archimedes (the
+note above). The value π is one coordinate; these are two geodesics to it,
+requiring different prior knowledge even to *draw the route*: the first needs only
+the metric; the second can be drawn only by someone already standing at the
+destination.
+
+**Status:** captured as a *prerequisite.* The user has a further statement still
+forming — *"you just proved one of the prereqs."* This is its groundwork, held for
+when the whole thing lands. The BOOK interleaf and the website fold are deferred
+until then.
