@@ -113,18 +113,69 @@ Same shape (a resource ceiling enforced by the substrate, not by convention),
 new axis — **economic, not throughput.** "The program halts because the budget
 is spent" is the dual of "the producer blocks because the consumer is full."
 
-## The honest hard part (four-questions, no hype)
+## The crux question — RESOLVED (2026-06-12): recursive core + tail-call trampoline
 
-- **Resumability is the real engineering, and it gates everything.** The crux
-  question: **is wat's runtime evaluator recursive Rust today, or already a
-  step / CEK machine?**
-  - If it's a recursive tree-walker, it cannot pause mid-form, and the
-    load-bearing arc is rewriting eval so the continuation is reified data
-    (CEK/SECD-style). That's the gorgeous version — continuation-as-value — but
-    it's not small.
-  - A **coarse** version is much cheaper and still useful: checkpoint only at
-    top-level-form or loop-iteration boundaries. You bill per statement and
-    pause *between* statements, not inside one. Probably the right first cut.
+Resumability gates everything, so the gating question was: **is wat's evaluator
+recursive Rust, or already a step / CEK machine?** Grounded against
+`wat-rs/src/runtime.rs`, the answer is **both** — a recursive tree-walker
+wrapped by an explicit tail-call trampoline.
+
+- **The core is recursive.** `eval` (`runtime.rs:3478`) → `eval_inner` (`:3279`)
+  → `eval_list` → the `eval_*` family, which call `eval_inner` on subforms
+  recursively. For a non-tail position — `(+ (expensive) (other))` — the
+  continuation lives on the **native Rust stack**; you can't reify it.
+- **But function calls don't recurse — they trampoline.** `apply_function`
+  (`:17335`) is a literal `loop {` (`:17366`) whose between-hop state is fully
+  reified as owned locals:
+  ```rust
+  let mut cur_func = func;   // the continuation between function hops…
+  let mut cur_args = args;   // …is plain data, not stack
+  let mut cur_span = call_span;
+  loop { ... }
+  ```
+  Tail positions emit `Err(EvalBreak::Signal(EvalSignal::TailCall { func, args, call_span }))`
+  (`emit_tail_call`, `:3032`); the trampoline catches it (`:17449`), re-seats
+  `cur_func`/`cur_args`, and loops. (This is how wat gets unbounded
+  recursion/loops without growing the stack.)
+
+So the binary resolves into **three tiers**:
+
+| Granularity | Cost | Why |
+|---|---|---|
+| **Meter "down to statements"** | **weeks** | One chokepoint (`eval_inner`). A fuel counter, decremented per form, returns a new `EvalBreak::OutOfFuel` at zero. `EvalBreak` is already the escape channel. |
+| **Pause/resume at function-call / loop-iteration boundary** | **small — no rewrite** | The trampoline is already a step machine whose between-hop continuation is `(cur_func, cur_args, cur_span, env)` — reified data. An `OutOfFuel` signal the trampoline catches *like* `TailCall`, but freezes and returns the state instead of looping. Same machinery, one more arm. |
+| **Pause/resume mid-expression (continuation-as-data everywhere)** | **the arc** | The recursive core needs a CEK/SECD rewrite so the continuation is reified for *every* position, not just tail. The gorgeous content-addressed-portable-continuation version. |
+
+**The pleasant surprise: the agentic UX needs the middle tier, not the arc.**
+"Run with a budget, halt between function calls / loop iterations, hand back a
+continuation, inspect the partial, pay to resume" — the trampoline already
+reifies exactly the seam you'd pause on. The full CEK rewrite is only needed to
+pause *inside* a single expensive form, or to make continuations
+content-addressable and portable across hosts (the dream, not v1).
+
+### What CEK is (for the future-mull)
+
+A **CEK machine** (Felleisen & Friedman, 1986) runs a functional language as a
+loop over three registers: **C**ontrol (the expression), **E**nvironment (the
+bindings), **K**ontinuation (*"what to do with the result," as an explicit data
+structure* — not the host call stack). K is the whole point: a recursive walker
+leaves the continuation implicit on the Rust stack (un-holdable); CEK makes it a
+**value**. At any step `(C, E, K)` fully describes where the program is — so
+**pause = stop and keep the triple**, and because K is data, in a homoiconic
+substrate it's wat AST / EDN → hashable (digest), signable, sendable, resumable
+on another host. CEK is *why* "the continuation is a content-addressed receipt"
+is achievable at all. wat's current trampoline is a **baby CEK for the
+function-call layer only**; the rewrite extends explicit-continuation treatment
+to every position. (SECD — Landin, 1964 — is the chunkier ancestor.)
+
+And the lineage closes a loop: **Dan Friedman — Indiana, *The Little Schemer* —
+co-authored CEK.** The machine that makes pausable, content-addressed,
+pay-to-continue compute work was written by the person whose book taught this
+way of thinking. The strange loop the realizations already clocked, cashed out
+in the substrate.
+
+## The other honest hard parts (four-questions, no hype)
+
 - **Metering overhead** — a per-node fuel counter taxes every eval. Real,
   survivable (EVM/WASM live with it), and the cost-check compiles down.
 - **Trust without determinism would be the soft spot** — but determinism is
@@ -150,9 +201,11 @@ machines that pay each other.**
 - **Not a spec.** No fuel-unit accounting, no cost-table values, no x402
   message schema, no continuation-serialization format. Those are arcs of their
   own when their time comes.
-- **Not committed.** It rides on a resumable evaluator that may or may not exist
-  yet; the first question above decides whether this is "instrument the eval
-  loop" (weeks) or "reify the continuation" (an arc).
+- **Not committed.** It rides on resumable evaluation, which (resolved above) is
+  a three-tier reality: metering is weeks, coarse function-boundary pause/resume
+  is a natural extension of the existing trampoline, and only the
+  content-addressed-portable-continuation dream needs the CEK arc. v1 doesn't
+  need the arc.
 - **Not exhaustive.** Open threads not covered: fuel pricing / unit economics,
   refunds on early completion, partial-result confidentiality, double-spend on
   resume tokens, who arbitrates a disputed bill, delegation (paying for a
@@ -165,8 +218,10 @@ machines that pay each other.**
 - The UDS-IPC work in flight (2026-06) — the transport rung that makes
   thread / process / remote one surface area, which is the layer metered eval
   rides on.
-- `wat-rs` runtime evaluator — **read it to answer the crux question**
-  (recursive vs step/CEK), which decides the shape of the work.
+- `wat-rs/src/runtime.rs` — the evaluator (crux **resolved** above):
+  `eval_inner` (`:3279`, the recursive core), `apply_function` (`:17335`, the
+  tail-call trampoline = a baby CEK for the function-call layer), `EvalBreak` /
+  `EvalSignal::TailCall` (the escape channel a fuel/pause signal would extend).
 - The total-pure macro engine (arc 249) — the determinism precedent that makes
   verifiable billing real (same source → same canonical hash).
 - x402 / agentic-payments — the external rail; the substrate provides the
