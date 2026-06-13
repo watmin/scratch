@@ -91,6 +91,62 @@ the program **halts**, the agent looks at what came back, and *then* decides to
 top up. Pause → inspect → decide → continue. The human/agent is in the loop at
 the granularity of their wallet.
 
+## Chain-agnostic settlement — the money twin of the identity overlay
+
+The payment side is **chain-agnostic by construction**, for the *exact same
+reason* `WAT-NETWORK.md`'s identity layer is cloud-agnostic. There, wat-network
+identity *overlays* any cloud's IAM (AWS / GCP / home-lab) — "the who and where
+dissolve; all that matters is the contract." Here, the **settlement** dissolves
+the same way: the substrate's billing unit is **internal** (fuel / eval-steps),
+and a payment is just a **verified proof that bought fuel.** The evaluator never
+knows or cares which coin paid for the gas it's burning. *Which* rails a host
+accepts is **host policy, not a substrate constraint.**
+
+The mechanism is x402's payment-required negotiation, generalized: a host
+**advertises its accepted rails**; the caller pays via one; the host verifies
+the proof and grants fuel.
+
+```
+agent → node:  signed{ run: <digest>, input, fuel: 5000 }
+node → agent:  402{ quote: "5000 fuel = $0.05",
+                    accepts: [ usdc-on-base, eth, sol, usdc-spl,
+                               cbBTC-on-base, lightning, prepaid-credit ] }
+agent:         pays via whichever it holds → gets a proof
+agent → node:  signed{ run: <digest>, input, fuel: 5000, pay: <proof> }
+node:          verifies the proof on that rail → grants fuel → evals
+```
+
+`USDC, ETH, SOL, wrapped-BTC (cbBTC/wBTC)` all collapse to "a native-or-token
+transfer on an EVM/Solana chain" — uniformly verifiable as *value landed at my
+address, final*. Native BTC via Lightning is a different rail (UTXO / HTLC),
+also pluggable. Same shape, different verifier.
+
+**The decoupling goes all the way down** — the genuinely wild part: because fuel
+is internal *and* the continuation is portable content-addressed data, you can
+**pay the initial run on Base in USDC and pay the resume on Solana in SOL** — or
+carry your paused continuation to a *different host that accepts a different
+chain entirely.* You are not on Base because your program *started* on Base;
+you're wherever the next cheap fuel is. Chain, asset, and host all dissolve into
+one question: *"did I receive enough value to grant this fuel?"*
+
+**The honest cost (four-questions, no hype):** rail-agnostic is *architecturally*
+free but *operationally* per-rail. Each chain a host accepts needs a **verifier**
+— a light client / RPC / finality check — so it can confirm the payment landed
+and won't reverse. Accepting a new chain = integrating its proof-verification
+**and its finality assumptions** (an L2 with a 7-day challenge window is a
+different settlement-risk profile than instant-final Solana). The *architecture*
+is chain-agnostic; each *rail* is an integration with its own trust policy. And
+per the prior-art survey, **x402 today leans EVM/USDC** (multi-chain is emerging,
+not mature) — so "host accepts a proof from chain X" is buildable now with that
+chain's verifier; "x402 across every chain" is a near-future bet.
+
+**The market kicker:** a fleet where hosts accept different rails and quote
+different prices is a genuine **multi-currency spot market for evaluation** — an
+agent shops for a host that takes its asset at the best price, and the portable
+continuation means **zero lock-in to any host's chain.** Everything that matters
+(program identity, continuation identity, settlement) is data + verification; the
+rails — which cloud, which chain — are interchangeable plumbing.
+
 ## Two things that fall out for free
 
 1. **Verifiable billing.** Eval is deterministic, so `(program, input) →
