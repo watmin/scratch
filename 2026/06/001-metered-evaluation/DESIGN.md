@@ -252,6 +252,21 @@ billable, and verifiable** — because the program *and its continuation* are
 values you can hash, sign, send, and price. **Homoiconicity was always for
 machines that pay each other.**
 
+### Who this is *for* — the customer is AI
+
+The mechanism above is a compute market; the **demand-side** answer — who buys
+it, and why it's not "neat" but structurally inevitable — lives in
+**`THE-VERIFICATION-MARKET.md`**. The short version: expose wat as an MCP tool
+(`wat-mcp`) and *any* LLM can call a **deterministic, signed, re-derivable
+evaluator** mid-reasoning to **disconfirm its own logic** — System-2 as a
+billable RPC, priced on the same rail tokens already ride. The customer for
+metered eval is **AI itself**: every agent that wants to stop hallucinating
+needs an outside verifier it can pay. And it closes a self-funding loop with
+agentic payments — *the agent pays (x402) for the verification (wat-mcp) that
+makes it safe to let it pay (x402)* — making verification and settlement one
+fabric: the trust substrate autonomous economic agents require. (The "Lisp" is
+the implementation detail; the product is verifiable metered compute for agents.)
+
 ## What this is NOT
 
 - **Not a spec.** No fuel-unit accounting, no cost-table values, no x402
