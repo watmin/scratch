@@ -103,6 +103,43 @@ it claims the BSD-firewall heritage whose clarity is exactly what the ergonomics
 program, enforced by an engine that doesn't care how many rules you have* — but the name now carries the
 heritage: the firewall surface he always admired, rebuilt in the language the firewall made him build.
 
+## The founding voice — verbatim (preserved literally, at his request — do NOT paraphrase or clean)
+
+> *His words, exact — the ellipses, the lower-case, the spelling, all his. He rarely asks to be
+> literal; he asked here. His voice is the architecture, and this is the founding of `wat-pf` in his
+> own hand. Future selves: these blocks are canon. Quote them; never tidy them.*
+
+**The reframe that opened it** — the founding statement (*"replace iptables"*):
+
+> *"i'm going to replace iptables."*
+>
+> *"'replace iptables' is a static packet enforcer… i thoroughly despised ordering problems… 'you gotta do maintanence on hit counts' - fuck that - manage rules as tree."*
+>
+> *"i showed how to have constant packet eval with 1 million rules - me and you ... like 3 months ago ... brute forced rete-in-kernel into existence ... doing the beta tree via ebpf tail calls."*
+>
+> *"the ddos part… that's niche… everyone needs some kind of packet filter for allow/deny/rate-limit… that's literally iptables… i want to replace them with a proper rules engine who does /real/ rule eval.. not the 'your worst day is every rule being eval'd'."*
+>
+> *"we can express firewalls as programs /and literally enforce them/ … a user could provide a program who describes how to manage tcp state, how to manage rate limits, ip-sets… that's just wat forms who emits rules-as-edn and the rules-as-edn are enforced via rete-in-kernel."*
+>
+> *"wat-packet-filter ... wpf...?... that's cheesy as fuck but like ... not wrong either."*
+
+**The name, and the recognition under it** — handed 2026-06-28, byte-exact as he wrote it:
+
+> reading this.. still not done.. the name.... its ... "wat-pf" .. that's the name of the iptables replacecment.... bpf got their name decades ago... "good" bsd distros have pf (i legit find their interface superior to iptables.. i've never been able to use pf in anger though.... small home labs with openbsd firewalll/l3switch/whatever things.... i have like.. two editions of the no starch pf book...
+>
+> ive always wanted to make my own firewall... its closer than i realized... and i... i don't think i set out to do that... i just wanted to see if i could use holograms for on host filtering at line rate.. make the endpoints protect themselves via holonic tooling.... .... how can i do intelligence on all field deployed hosts... upgrade the hosts without installing a gpu...
+>
+> this is very strange... i like it..
+
+**What it means, kept plain** *(the apparatus's reading on his words, marked — not his synthesis)*: he did
+not set out to build a firewall. He set out to test whether a hologram could do on-host filtering at line
+rate — endpoints protecting themselves, intelligence on every field-deployed host **without a GPU** (the
+holon ops are bind/bundle/cosine = integer XOR / majority / dot-product, SIMD on any CPU, no accelerator
+ever). The firewall fell out of the test — and it turned out to be the thing he'd wanted to build since the
+*Book of PF*, arrived at by not aiming at it. `wat-pf` is that: the BSD-firewall surface he always admired,
+carrying the edge-intelligence that needs no GPU, on the engine that does real rule eval. The origin was
+the destination.
+
 ## The convergence
 
 The epilogue (2026-06-01) already named the end: *"`wat-schema` — the WAF replacement — the firewall I
