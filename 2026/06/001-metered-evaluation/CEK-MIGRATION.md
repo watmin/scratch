@@ -345,6 +345,75 @@ seal). Arc 295 is the trust leg, **already designed and grounded** on `load.rs` 
 model — so the trust layer for migration is not future research; it is a scoped arc whose seal target
 (the canonical-EDN AST) is exactly what a reified continuation already is.
 
+### Tier 4 — the JIT: what bytecode becomes, and its constraint set
+
+> Captured **2026-06-28** (co-design). Builder is queuing internals work *after* the surface settles;
+> this is the terrain map for the native tier, not a difficulty verdict (no time estimate — by design).
+
+**Bytecode → native machine code, via a codegen backend.** Pipeline: `bytecode → JIT IR (SSA) →
+instruction selection → register allocation → encoding → executable page → jump`. Backend choice:
+
+- **Cranelift** — pure-Rust, JIT-designed (Wasmtime's backend), fast compile, ~70–90% of LLVM quality,
+  no C++ dep. **The fit.**
+- **LLVM** (`inkwell`) — best code, but heavy dep + slow compile (fights JIT warm-up). Wrong weight.
+- **copy-and-patch / template** — per-op machine-code snippets stitched at runtime; the *baseline* tier
+  (CPython 3.13 / LuaJIT baseline shape).
+
+**Architecture is multi-tier, interpreter never leaves:** tier 0 interpreter (cold code + deopt landing)
+· tier 1 baseline JIT (anything run >once; ~2–4× interp) · tier 2 optimizing JIT (hot functions only,
+counter-triggered; inlining/specialization/unboxing; near-native). Native is a **cache over bytecode**,
+itself a cache over the abstract machine — three refining layers.
+
+**The seven JIT constraints** (they collapse onto pillars already named here):
+
+1. **Deopt, sound.** Optimistic compilation under assumptions; on break, abandon the native frame,
+   **reconstruct bytecode-level `(C,E,K)`**, resume in interp. **= the continuation-serialization
+   machinery.** The JIT *forces* the migration substrate; same metadata.
+2. **Safe points + stack maps.** Native is opaque mid-instruction; define safe points (calls, loop
+   back-edges, allocs) where the stack is walkable. **GC roots, deopt, snapshot, migration all key off
+   these.** Optimize between; materialize a consistent state at.
+3. **Cross-tier ABI + OSR.** A fn may be bytecode ∧ baseline-native ∧ optimized-native at once; call
+   sites dispatch to whichever exists, and a running loop swaps tiers mid-flight (on-stack replacement).
+   Needs a uniform value/frame rep across tiers, or boundary adapters. The hard part of multi-tier.
+4. **JIT-friendly value rep.** Unbox in hot regions (raw register `i64`, not `Value::Int`); NaN-boxing /
+   tagged pointers. Tension: the unboxed form must be **re-boxable to canonical EDN at every safe point**
+   (constraint 3). wat's *typed* values are the advantage — typed regions unbox with confidence.
+5. **W^X + the JIT is in the TCB — meets arc 295.** Emit into RW memory, `mprotect`→RX, jump (on hardened
+   targets: `MAP_JIT`, `pthread_jit_write_protect_np`, PaX/SELinux). A JIT is a **code-injection primitive
+   by design**, colliding with signed-code-only: it produces *un-signed native code at runtime*.
+   Resolution = truth-vs-cache: native isn't independently trusted, it is a **cache of verified bytecode**
+   (provenance = the signed canonical-EDN AST it lowered from). Imposes hard constraints: the JIT must be
+   *incapable* of compiling un-verified bytecode; the W^X window must be airtight (writable+executable =
+   RCE); **the JIT enters the trust boundary** — a JIT bug is arbitrary native execution, so the compiler
+   is as security-critical as the verifier. The deepest one.
+6. **Inline caches + speculation, and invalidation.** Assume the common case (monomorphic call, stable
+   type), guard a fast path, fall back on miss. But `defn`-redefinition / dynamic capability means
+   **redefining a fn must invalidate every native unit that inlined or speculated on it** — mark
+   dependents stale, deopt running instances, recompile lazily. A dependency-tracking + code-patching
+   mesh; ongoing.
+7. **Refinement under optimization — why the spec is a *predicate*.** Every opt (const-fold, reorder,
+   inline, unbox, DCE) must preserve `native ⊑ wat-vm`. Float reordering, integer overflow, effect order
+   — every place a compiler silently changes observable behavior. **You can only *know* an opt is legal if
+   a spec says what's observable.** Without the intrinsic `wat-vm`, every optimization is a guess that may
+   change meaning. This is the precise mechanism behind "LEAN was a predicate for perf."
+
+**Synthesis.** The JIT introduces **no new foundations** — it *forces* the two already named: its hardest
+constraint (deopt / safe-point reconstruction) **is** the serialization substrate (snapshot = deopt to
+portable form), and its correctness constraint (sound optimization) **requires** the `wat-vm` spec. The
+JIT, migration, and verification are the *same three pillars* — serializable `(C,E,K)`, signed
+canonical-EDN, abstract-machine spec — now load-bearing for **speed**. And the dependency graph dictates
+order: **you cannot JIT a moving target** — every form-set change re-lowers the compiler — so the surface
+must settle before the spec, the signing, and the JIT can lock. "Surface first, then the guts" is the only
+order the graph allows.
+
+**Honest perf scope (no hype):** tree-walk→bytecode is ~2–5× on the *interpreted fraction* only
+(primitives are already native); the overall win is Amdahl-bounded by how glue-bound a workload is, and the
+existing fast stress tests indicate wat's real workloads are primitive-dominated — so bytecode's *overall*
+gain is likely modest, the *capability* gain large. Native JIT reaches ~1.5–3× of hand-written Rust on hot
+wat-level compute — **near native, never at it** — and only earns its keep when wat is used against its
+grain (heavy compute *in wat* rather than dropped to a primitive). The reason to build it is the capability
+trinity above, with a real-but-bounded perf bonus; not "wat becomes native Rust."
+
 ## Cross-references
 
 - `DESIGN.md` (this dir) — the metered-eval idea + the three-tier resolution;
