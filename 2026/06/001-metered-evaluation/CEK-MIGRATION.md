@@ -414,6 +414,69 @@ wat-level compute — **near native, never at it** — and only earns its keep w
 grain (heavy compute *in wat* rather than dropped to a primitive). The reason to build it is the capability
 trinity above, with a real-but-bounded perf bonus; not "wat becomes native Rust."
 
+### Tier 4 ANNIHILATED — the path is compile-on-load (and compile-on-`eval`), not a JIT
+
+> **SUPERSEDED-by-annihilation (2026-06-28, co-design).** The Tier-4 JIT section above is **kept as the
+> bridge** that revealed this: working out its seven-constraint set is exactly what exposed that a **typed,
+> homoiconic** language does not need a lazy speculative JIT *at all*. The JIT was the path to its own
+> annihilation — annihilated **before it is built**. (Amend-with-recognition: the prior reasoning stands,
+> marked; `feedback_qualified_annihilations_are_priority`.)
+
+**Why the JIT evaporates.** A speculative tiered JIT exists to recover, *lazily at runtime*, information a
+**dynamic** language threw away — types, hot paths, stable call targets. wat threw none of it away:
+
+- **Types are known at compile time** (HM inference). The #1 reason a JIT speculates (and must deopt) is
+  *gone* — there is nothing to guess.
+- **Hot paths need not be guessed.** Compile *every* function once, at load; it does **not** bloat — C is
+  the proof (one function, one compilation, args dynamic). And the i-cache argument forbids the JIT's only
+  *alternative* anyway: per-value combinatorial copies blow L1i (~32 KB, on-die, never abundant) and run
+  *slower*, regardless of how much RAM the cloud rents you.
+- **Code is data.** The specialization a JIT does at runtime *is* **partial evaluation**, and wat already
+  owns the mechanism — macros (compile-time computation that emits specialized code) + EDN-as-spliceable
+  bytecode (inline = splice the callee; unroll = concat; specialize = splice a constant). This is
+  **Futamura's first projection** in wat's own idiom: specialize the interpreter to a fixed program = that
+  program, compiled.
+
+**The path that replaces it:**
+
+- **AOT compile-on-load.** Typed AST → native, each function once (structure specialized, args dynamic),
+  via partial-eval/staging. The compiled unit compiles its own code on start. No counters, no tiers, no
+  on-stack-replacement, no speculation. *(Cheapest first rung, no codegen backend: "compile to closures" —
+  pre-process each node once into a closure with its dispatch baked in; removes the per-op tax in pure Rust.
+  Cranelift only for the last mile to machine code.)*
+- **Compile-on-`eval` (the programmable-host mode).** A host receives a **signed** program over the wire
+  and compiles it the instant it lands — `eval` *is* compilation (Futamura 1st projection). The host
+  compiles its *momentary purpose* on demand, runs it until deprovisioned, frees it. *"You are now a load
+  balancer." "You are now a database."* (The deployment realization is `FIELD-PROGRAMMABLE-HOSTS.md`.)
+- **PGO, not a JIT, for the residual.** The one thing AOT cannot see is genuinely data-dependent hotness
+  types can't reveal — handled, *if* it ever bites, by a profile-guided **second AOT pass**, never a lazy
+  runtime tier. The annihilation holds.
+
+**The seven constraints collapse — and the keystone gets EASIER:**
+
+| JIT constraint (from above) | fate under compile-on-load |
+|---|---|
+| 1. Deopt (speculation) | **gone** — nothing is speculated; types are known |
+| 2. Safe-points / stack-maps | **survive, simpler** — kept *only* for the hibernation/migration axis (the CEK continuation), AOT + typed, not a mid-run JIT bail-out |
+| 3. Cross-tier ABI + OSR | **gone** — one tier, compiled before it runs, no mid-run swap |
+| 4. JIT-friendly value rep | **simplifies** — the rep is known at compile time (typed); no NaN-boxing speculation |
+| 5. W^X + compiler-in-TCB | **survives, smaller surface** — codegen is one-shot at load / at `eval` of an *already-signed* program, not continuous runtime emission |
+| 6. Inline-cache speculation + invalidation | **gone** — no speculation; redefinition is recompile-on-`eval`, not a live runtime patch |
+| 7. Refinement `native ⊑ wat-vm` | **survives — and is now TRACTABLE.** A deterministic one-shot AOT compiler is *provable*; a speculative tiered JIT-with-deopt is a beast. |
+
+**The deepest dividend:** annihilating the JIT **strengthens** the thesis. The thing you must prove —
+`native ⊑ wat-vm` — is now a clean, deterministic AOT compiler, not a runtime speculation engine. The
+verified guts move from *aspirational* to *provable*. The bridge is burned; the stone is easier to cut.
+
+**The revised ladder:** tree-walk (today) → **CEK** (the abstract machine = the spec + the serializable
+continuation) → **AOT compile-on-load / compile-on-`eval`** (native, `native ⊑ CEK`, provable). The
+**bytecode survives only as a serializable IR/template** — the spliceable partial-eval medium and the
+hibernation image — never as an interpreter-speed tier or a JIT input. The two-tier JIT cache is gone; the
+serializable continuation (hibernation/migration) is a *separate* axis that never needed the JIT and never
+needed speculation-deopt — only the simpler safe-point reconstruction, and only for stateful services that
+actually migrate (most of the orchestrator's install→run→deprovision services carry the defservice EDN
+**soul** (291 R8), not an arbitrary captured continuation).
+
 ## Cross-references
 
 - `DESIGN.md` (this dir) — the metered-eval idea + the three-tier resolution;

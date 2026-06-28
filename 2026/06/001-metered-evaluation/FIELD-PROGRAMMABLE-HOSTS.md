@@ -80,6 +80,36 @@ modeled, not built, **must be solved**, but **the lowest-worry of the open probl
 trivial problems to solve in the wat."* A host-that-becomes-what-it's-told is itself a different scheduling
 primitive worth chasing.
 
+### The model, made concrete (builder, 2026-06-28) — empty hosts, install-by-`eval`, install→run→deprovision
+
+The builder named the orchestration shape, and it is the deployment realization of **compile-on-`eval`**
+(see `CEK-MIGRATION.md` → Tier-4 annihilation: `eval` *is* the compile; the JIT was never the path):
+
+- **Empty hosts await purpose.** Boot some boxes; each runs **N wat-vm guests in a trusted (TEE-attested)
+  state**, idle, each awaiting a purpose to be installed. An empty guest accepts connections **only from an
+  mTLS peer authorised to call it** — the perimeter before any purpose exists.
+- **The orchestrator installs purpose over the wire.** It calls into a free, *trusted* guest and ships a
+  **signed program**; the guest verifies it (signed-code-only, arc 295), **compiles it on `eval`** (Futamura
+  1st projection — specialize the runtime to the arriving program, native), and *becomes* that service:
+  *"you are now a load balancer," "you are now a database," "you are now a storage server," "you are now a
+  cache."*
+- **Swap purpose per host; scale in and out.** A guest serves its purpose until **deprovisioned**, then
+  **frees** and returns to the idle pool, ready for the next install. Purpose is *momentary* and
+  per-guest — the fleet is a pool of trusted, empty wat-vms whose roles are installed and torn down on
+  demand, not a fixed assignment of machines to jobs.
+- **Distributed primitives — delegate consensus, don't hand-roll it (yet).** The hard distributed cores
+  (leader election, replicated state) are **delegated to an existing HA store** — DDB / Mongo / MySQL —
+  *"these things solve for paxos (until i solve it)."* This is exactly k8s's own move (etcd is the only thing
+  that does consensus; the kubelet is the per-node daemon; a pod is a service), re-derived. The rest —
+  *"boot some boxes, manage them"* — the builder grades **trivial distributed problems**, his **"I know what
+  to build"** layer. Recorded as his call: tangible, low-risk, the part he sweats least.
+
+**Why this is the easy half.** The trust substrate (signed-code-only, attested guests, compile-on-`eval`,
+the verified `wat-vm`) is the hard, novel work — and it is what makes the orchestration trivial: once a
+purpose is *a signed program a trusted guest compiles into itself*, "scheduling" is "pick a free trusted
+guest and install," "scaling" is "install more / deprovision," and "service discovery" is the orchestrator's
+own registry of who-is-running-what. The hard half (trust) buys the easy half (orchestration) for free.
+
 ## Positioning — the sharper unification of a real frontier
 
 This is not a lone-genius fantasy; it is the **sharper, unified version of where the serious frontier is
