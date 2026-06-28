@@ -165,6 +165,112 @@ tier:
 - **Content-addressed, portable continuations** — the metered-eval dream:
   pause anywhere, hash/sign/send the continuation, resume on another host.
 
+## Beyond the interpreter — bytecode, native, and keeping the serializable continuation
+
+> Captured **2026-06-28** from a live co-design pass (mine, with the builder).
+> **Extends, does not supersede,** the CEK-*interpreter* plan above. The plan above
+> lands tier 3 (CEK, K reified as data). This section answers the next question:
+> once CEK is in, can we go *fast* — bytecode, then a native JIT — **without losing
+> serialize / hibernate / migrate**? Yes. The contract is the constraint set below.
+
+The folk worry is "interpreted → slow," but speed is set by where the cycles go
+(Amdahl), and wat's interpreter is native Rust over native primitives — real
+workloads are primitive-dominated, so the walk is noise (the stress tests already
+say so). "Interpreted" names *how* it runs, not *how fast*. So the tiers below are
+about **capability headroom**, not rescuing a slow base.
+
+### The tier ladder — where serializability is free, and where it bites
+
+| Tier | Execution | Serializable `(C,E,K)`? |
+|---|---|---|
+| tree-walk (today) | recurse over `WatAST` on the Rust call stack | **no** — K *is* the Rust stack |
+| **CEK interpreter** (this doc) | step over `WatAST`, K reified as data/EDN | **yes — free** (K is data) |
+| **bytecode VM** | step a flat instruction stream; state = `(ip, E, frame-stack)` | **yes — ~free** (the VM state *is* the image) |
+| **native JIT** | compile hot bytecode → machine code | **not free** — state is registers + code pointers; needs the constraint set |
+
+The load-bearing observation: **serializability is free at the CEK and bytecode
+tiers** — the machine state already *is* data. It only "goes hard" at the **native**
+tier. Bytecode is the natural next step after CEK (defunctionalize K → linearize the
+control into an instruction stream); it is *faster than the CEK interpreter AND keeps
+the portable image for free*. Native is the optional fourth tier where the contract
+applies.
+
+### The principle — a latent hologram, not a maintained one
+
+Portable `(C,E,K)` is the **source of truth**; bytecode and native are **caches that
+must be able to bail back to it.** (Helland, this repo's `recolligere` epigraph: *the
+truth is the log; the database is a cache of a subset of the log.*) You **never
+serialize the cache** — you serialize the *reconstructed* truth.
+
+So you do **not** maintain two synced copies (that doubles memory and pins the
+optimizer — anything the EDN-shadow could observe, the compiler can't elide). You
+maintain a cheap invariant that the portable form is **reconstructible on demand at
+safe points** — *knowable, not held*. The hologram is **latent**: it condenses out of
+compile-time metadata exactly when you look (snapshot / migrate / inspect / deopt),
+and is otherwise just the fast form running free. Exact analogy: a GC doesn't hold a
+live root-list — it keeps **stack maps** to *find* roots at a safe point. Same
+structure, one level up.
+
+### The constraint set (native tier — to lose no CEK benefit)
+
+1. **Safe-point reconstructibility.** At every safe point, the logical `(C,E,K)` is
+   rebuildable from running state in bounded work, via metadata fixed at compile time
+   (stack maps / deopt info — the HotSpot/V8 deopt + Go stack-copy machinery).
+   *Granularity is a lever:* coarse safe points (call boundaries + loop back-edges)
+   keep native fast and still hibernate at every semantically meaningful point — you
+   almost never need mid-arithmetic capture. **The load-bearing one.**
+2. **Portable code identity.** Nothing capturable in a K may hold a raw machine
+   address — only a stable content-hash / symbol; resume maps hash → (load or re-JIT).
+   *Already the dream* (this doc, "K is content-addressable, signable, portable") —
+   here it is **promoted to a hard machine invariant.** ✅ structurally in reach.
+3. **Serializable data closure.** No value live across a safe point may be non-EDN
+   without a declared re-materialization recipe. *Already wat doctrine*
+   (wat-record-for-EDN; `Value::Struct` only for non-EDN payloads) — **promoted from a
+   style rule to a machine invariant.** ✅ structurally in reach.
+4. **Resource re-acquisition by name.** Live external resources crossing a safe point
+   — fds, peers, locks, io_uring SQEs — must be portably *named* and re-openable, or
+   confined to between safe points. This is where migration meets `mora` / the
+   three-loci peer interface: a computation hibernated **mid-IPC** resumes by
+   re-establishing the channel *by name*, not by shipping a dead fd. **The deepest
+   one** — it is the constraint that turns "ship the running computation to the remote
+   locus" from a segfault into a defined operation, and it is the highest-value.
+5. **Refinement equivalence.** Native must faithfully realize the abstract machine —
+   the deopt mapping is a sound simulation (`native ⊑ CEK`), so the two faces of the
+   hologram always agree. A **provable** obligation — the operational-equivalence shape
+   from the LEAN-parity thread (`../003-verified-eval/THE-LEAN-PARITY-STONES.md`).
+
+### Status, and the asymmetry worth noticing
+
+- **2 and 3 are structurally already true** (content-addressing; EDN-by-default).
+- **1 and 5 are the engineering + proof mountain** (stack maps / deopt; the simulation
+  proof).
+- **4 is the deepest and the highest-value.** The set {native speed} ∩ {a continuation
+  you can serialize and *ship across machines*} is genuinely sparse: the JVM has native
+  + an image-ish heap but no portable stack migration; Smalltalk has the migratable
+  image but not native; SML/NJ has native CPS continuations but no portable
+  serialization — **each has two of the three.** Content-addressed wat is positioned to
+  have **all three**, and constraint 4 is the hinge.
+
+### The four questions
+
+- **Obvious?** ✅ truth-vs-cache; serialize the *reconstructed logical form*, never the
+  native frames.
+- **Simple?** ✅ the hologram is **latent** (one source of truth + metadata), not two
+  synced copies.
+- **Honest?** ✅ names which constraints are already met (2, 3), which are the mountain
+  (1, 5), and which is the deep one (4) — no hand-waving over the resource edge.
+- **Good UX (future-you)?** ✅ coarse safe points = fast native *and* hibernate where it
+  matters; you never pay a fine-grained-safepoint tax for a granularity you don't need.
+
+### Honest caveat / sequencing
+
+Strictly **after** the CEK interpreter (tier 3 above). Don't reach past bytecode for the
+native JIT until a real workload is *glue-bound* — today everything is
+native-primitive-dominated, so the interpreter tax is already noise, and native codegen
+buys nothing until the wat-level fraction grows. Bytecode (tier-3.5) is the move that is
+**both** faster than the CEK interpreter **and** keeps the serializable image free; it is
+almost certainly the sweet spot, with native held as a constraint-gated option.
+
 ## Cross-references
 
 - `DESIGN.md` (this dir) — the metered-eval idea + the three-tier resolution;
@@ -175,3 +281,7 @@ tier:
   reified).
 - arc 251 (the syntax flip + the great migration / home-lifting) — the
   prerequisite that settles the form set and pays down the monolith.
+- `../003-verified-eval/THE-LEAN-PARITY-STONES.md` — the operational-equivalence /
+  refinement obligation behind constraint 5 (`native ⊑ CEK`): proving the fast tier
+  faithfully realizes the abstract machine is the same shape as the LEAN-parity
+  "checks programs → checks proofs" build log.
