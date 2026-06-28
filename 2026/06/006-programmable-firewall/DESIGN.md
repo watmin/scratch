@@ -89,13 +89,19 @@ later for trust purity.
 - **The `1.3M pps` figure was an accident** (a broken rate limiter), honestly documented — *not* the
   capability. The capability is **O(fields)-per-packet at 1M rules**; cite that, never the pps headline.
 
-## The name — least load-bearing, flagged honestly
+## The name — `wat-pf` (landed 2026-06-28)
 
-The builder floated **`wat-packet-filter` / `wpf`** (*"cheesy as fuck but… not wrong"*). Two issues: **`WPF`
-collides with Microsoft's Windows Presentation Foundation** (the acronym will confuse), and "filter"
-undersells it — it is a **firewall you write as a program**, not a filter. Closer working names: `fwat`,
-`wat-fw`, "the rete firewall." The name can wait; the substance — *iptables, done as a program, enforced by
-an engine that doesn't care how many rules you have* — is the thing.
+The name is **`wat-pf`** — *wat's packet filter*, in the lineage it belongs to: **BPF** (Berkeley Packet
+Filter, named decades ago) and **PF** (OpenBSD's `pf`). PF is the load-bearing reference, not BPF: its
+**configuration interface** is the ergonomic north-star here — the builder runs it in home-lab
+firewalls / L3-switches and keeps **two editions of the No Starch *Book of PF***, and has long held its
+surface *superior to iptables* (the syntax iptables never got right). So `wat-pf` reads as *"wat's pf"*:
+it claims the BSD-firewall heritage whose clarity is exactly what the ergonomics layer chases —
+**pf's legibility, as a real program that emits the rules** — and it cleanly sidesteps the earlier
+`wpf`, which collides with Microsoft's Windows Presentation Foundation. *(Superseded:
+`wat-packet-filter` / `wpf`, `fwat`, `wat-fw`.)* The substance is unchanged — *iptables, done as a
+program, enforced by an engine that doesn't care how many rules you have* — but the name now carries the
+heritage: the firewall surface he always admired, rebuilt in the language the firewall made him build.
 
 ## The convergence
 
