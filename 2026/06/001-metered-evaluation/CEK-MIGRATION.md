@@ -271,6 +271,80 @@ buys nothing until the wat-level fraction grows. Bytecode (tier-3.5) is the move
 **both** faster than the CEK interpreter **and** keeps the serializable image free; it is
 almost certainly the sweet spot, with native held as a constraint-gated option.
 
+### The deeper unlock — `wat-vm` becomes a *specification*, not a binary
+
+> Builder's framing (2026-06-28): *building CEK means we get to declare `wat-vm` has
+> intrinsic meaning — not just a "good enough" ref to whatever wat does right now.* True,
+> and it's the keystone the other two pursuits also rest on. (His insight; the spec-vs-impl
+> precision + the V8 contrast below are the apparatus's synthesis — marked, not blended.)
+
+Today wat's meaning is **implementation-defined**: "what does this program mean?" has one
+answer — *whatever `runtime.rs` computes*. The semantics live in 30k lines of Rust; the
+definition is circular (wat is what the evaluator does). That's a **reference
+implementation**, not a specification — you cannot even *have* two conformant wat
+implementations, because there is nothing to conform to but the one binary. (CPython/MRI
+sat here for years: "Python is what CPython does.")
+
+CEK turns it **machine-defined**. The abstract machine — a finite transition system, the
+~15–25 frame shapes — *is* the specification. `wat-vm` is now the intrinsic referent; the
+tree-walker, the bytecode VM, the native JIT are all **implementations**, each correct iff
+it refines the machine (`impl ⊑ wat-vm` — constraint 5). Many conformant implementations
+become possible. That moves wat into the class of languages defined by an abstract machine
+rather than a binary — *The Definition of Standard ML*, Scheme's formal semantics, and most
+on-the-nose **WebAssembly** (a stack-machine bytecode whose spec *is* the machine).
+
+This is the same **truth-vs-cache** relation as the constraint set, one level up: the
+abstract machine is the *truth*; every executor — tree-walk, bytecode, native — is a *cache*
+that must refine it. Semantic conformance and serialization-correctness are not two problems;
+they are the one `⊑ wat-vm` obligation seen twice.
+
+And it is the **precondition for migration, not a nicety**: a continuation is portable across
+hosts *only because* there is a shared, defined machine for it to be a state *of*. Without an
+intrinsic `wat-vm`, a hibernated continuation is "some Rust state" meaningful only to this
+binary on this build — shipping it is nonsense. With it, the continuation is "a state of the
+`wat-vm`," and any conformant host can finish it. So the three ambitions — **verify**
+(LEAN-parity), **accelerate** (the tier ladder), **trust** (signing, below) — are not three
+goals; they are three faces of one keystone: the intrinsic, signed, EDN `wat-vm`.
+
+### Signing the machine (arc 295) — the continuation is a *signed* EDN value
+
+Arc 295 (`signed-code-only`) is the trust leg, and it makes "sign the semantics" concrete
+rather than aspirational. The doctrine (builder, verbatim — `wat-rs/docs/arc/2026/06/295-signed-code-only/REALIZATIONS.md`):
+*"you may only use signed code … there is no option. period. you sign your code. you may only
+sign your code."* Two grounded facts from `295/DESIGN.md` make it click for CEK:
+
+- **The signature target is the canonical-EDN hash of the *AST*** (`src/load.rs:60`), not raw
+  bytes — "the AST is what's signed," so a signature survives comment/whitespace edits. And
+  *"wat is edn"* (his): manifest, chain, keys — all EDN, no JSON, no blobs, no runtime-KMS dep.
+- **Eval-side doctrine:** *"eval must be signed, mandatory, parity with load."*
+
+Now the keystone lands: since CEK reifies `(C,E,K)` as canonical EDN (this doc's K-as-`WatAST`/EDN
+dream), **signing a continuation IS signing code** — same canonical-EDN hash, same ed25519 /
+`:sig` support, same multi-key manifest + chain. No new mechanism. And eval-must-be-signed means a
+**migrated continuation cannot resume unless signed-and-verified** — it rides the exact signed-EDN
+eval path a loaded file does, checked before it runs.
+
+The threat model is the same one, too. Arc 295's why (The Tempest, his song): *"there's no fork,
+there's no horns"* — malicious code wears no mark; you cannot find the devil by looking, so the only
+proof against an unmarked adversary is the seal. A continuation arriving from the **remote locus**
+wears no horns either: you cannot tell a legitimate resume-state from a hostile one by inspecting it,
+so the signature is the only proof it is safe to resume. *Signed-code-only and continuation-migration
+are the same trust problem.*
+
+So "ship the running computation to another locus" needs **three preconditions, all riding one EDN
+substrate**:
+
+| precondition | what it gives the continuation | source |
+|---|---|---|
+| **CEK** | *serializable* — `(C,E,K)` reified as EDN data | this doc, tier 3 |
+| **intrinsic `wat-vm`** | *meaningful* across hosts — a state of the shared machine | the spec above |
+| **arc 295 signed-code-only** | *trusted* across hosts — signed canonical-EDN, verified before eval | `295/DESIGN.md` |
+
+A migrated continuation is serializable (CEK) **+** meaningful (the spec) **+** trusted (the 295
+seal). Arc 295 is the trust leg, **already designed and grounded** on `load.rs` + datamancy's shipped
+model — so the trust layer for migration is not future research; it is a scoped arc whose seal target
+(the canonical-EDN AST) is exactly what a reified continuation already is.
+
 ## Cross-references
 
 - `DESIGN.md` (this dir) — the metered-eval idea + the three-tier resolution;
@@ -285,3 +359,8 @@ almost certainly the sweet spot, with native held as a constraint-gated option.
   refinement obligation behind constraint 5 (`native ⊑ CEK`): proving the fast tier
   faithfully realizes the abstract machine is the same shape as the LEAN-parity
   "checks programs → checks proofs" build log.
+- `wat-rs/docs/arc/2026/06/295-signed-code-only/{DESIGN,REALIZATIONS}.md` — the trust
+  leg: signed-code-only, the signature over the **canonical-EDN AST** (`load.rs:60`),
+  eval-must-be-signed (parity with load), the EDN multi-key manifest + timestamped chain.
+  The mechanism that makes a reified `(C,E,K)` a *signed* value for free — same canonical-EDN
+  hash as a loaded file. (`project_signed_code_only_doctrine` memory.)
