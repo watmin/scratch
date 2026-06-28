@@ -425,7 +425,7 @@ trinity above, with a real-but-bounded perf bonus; not "wat becomes native Rust.
 **Why the JIT evaporates.** A speculative tiered JIT exists to recover, *lazily at runtime*, information a
 **dynamic** language threw away — types, hot paths, stable call targets. wat threw none of it away:
 
-- **Types are known at compile time** (HM inference). The #1 reason a JIT speculates (and must deopt) is
+- **Types are known at compile time** (Hindley-Milner inference). The #1 reason a JIT speculates (and must deopt) is
   *gone* — there is nothing to guess.
 - **Hot paths need not be guessed.** Compile *every* function once, at load; it does **not** bloat — C is
   the proof (one function, one compilation, args dynamic). And the i-cache argument forbids the JIT's only
@@ -440,7 +440,7 @@ trinity above, with a real-but-bounded perf bonus; not "wat becomes native Rust.
 **The path that replaces it:**
 
 - **AOT compile-on-load.** Typed AST → native, each function once (structure specialized, args dynamic),
-  via partial-eval/staging. The compiled unit compiles its own code on start. No counters, no tiers, no
+  via partial evaluation (staging the known parts away). The compiled unit compiles its own code on start. No counters, no tiers, no
   on-stack-replacement, no speculation. *(Cheapest first rung, no codegen backend: "compile to closures" —
   pre-process each node once into a closure with its dispatch baked in; removes the per-op tax in pure Rust.
   Cranelift only for the last mile to machine code.)*
@@ -448,7 +448,7 @@ trinity above, with a real-but-bounded perf bonus; not "wat becomes native Rust.
   and compiles it the instant it lands — `eval` *is* compilation (Futamura 1st projection). The host
   compiles its *momentary purpose* on demand, runs it until deprovisioned, frees it. *"You are now a load
   balancer." "You are now a database."* (The deployment realization is `FIELD-PROGRAMMABLE-HOSTS.md`.)
-- **PGO, not a JIT, for the residual.** The one thing AOT cannot see is genuinely data-dependent hotness
+- **Profile-guided optimization (PGO), not a JIT, for the residual.** The one thing AOT cannot see is genuinely data-dependent hotness
   types can't reveal — handled, *if* it ever bites, by a profile-guided **second AOT pass**, never a lazy
   runtime tier. The annihilation holds.
 

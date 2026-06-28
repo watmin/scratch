@@ -23,8 +23,8 @@ means tampered or unauthorized code **cannot run at all** — the *"there's no f
 threat model (an adversary that wears no mark; the seal is the only proof) answered structurally, not by
 convention.
 
-And it is **native** (the CEK → bytecode → JIT ladder), so the assurance does not cost an interpreter tax
-on the hot path.
+And it is **native** — compiled on load (or on `eval`; the JIT was annihilated, see `CEK-MIGRATION.md`), so
+the assurance does not cost an interpreter tax on the hot path.
 
 ## The trust chain — why it beats the container norm
 
@@ -61,11 +61,14 @@ bolted on; here it is a verifiable chain whose every link is measured or signed.
    are newer but the arms race is live. So this is a **far better root, not an unbreakable one** — the
    attestation is worth exactly the TEE's integrity, which is a moving target. (Builder's domain; named,
    not hand-waved.)
-2. **The wat-vm is the *entire* TCB inside the enclave — and it is a JIT.** Once "the real wat-vm is
-   running" and "only signed code evals" are attested, the residual attack surface is the TEE **plus the
-   wat-vm's own bugs** — JIT miscompilation, a memory-safety slip, a co-tenant sandbox escape. Therefore
+2. **The wat-vm is the *entire* TCB inside the enclave — and it carries a compiler.** Once "the real wat-vm
+   is running" and "only signed code evals" are attested, the residual attack surface is the TEE **plus the
+   wat-vm's own bugs** — a compiler miscompilation, a memory-safety slip, a co-tenant sandbox escape. Therefore
    **the wat-vm's correctness *is* the security boundary.** The attestation proves the runtime is
-   *running*; it proves nothing about the runtime being *right*. This is why **verification
+   *running*; it proves nothing about the runtime being *right*. (And annihilating the JIT —
+   `CEK-MIGRATION.md` — makes this *better*, not worse: a deterministic AOT compiler invoked once at load / at
+   `eval` of an already-signed program is a smaller, **provable** surface than a continuous speculative JIT.)
+   This is why **verification
    (`native ⊑ wat-vm`, the LEAN-parity work) is load-bearing here, not optional** — the whole deployment
    chain ultimately cashes out as a proof obligation on the runtime itself.
 
@@ -141,7 +144,8 @@ product.** Verify, accelerate, trust, *deploy* — all four cash out on the same
 
 ## Cross-references
 
-- `CEK-MIGRATION.md` (this dir) — the internals roadmap (CEK → bytecode → JIT) + the three pillars
+- `CEK-MIGRATION.md` (this dir) — the internals roadmap (CEK → AOT compile-on-load / `eval`; the JIT
+  annihilated) + the three pillars
   (serializable `(C,E,K)`, signed canonical-EDN, the `wat-vm` spec) this deployment thesis rests on.
 - `wat-rs/docs/arc/2026/06/295-signed-code-only/{DESIGN,REALIZATIONS}.md` — the trust leg: signed-code-only,
   the signature over the canonical-EDN AST, eval-must-be-signed.
